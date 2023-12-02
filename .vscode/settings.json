@@ -1,0 +1,12 @@
+{
+	"c-cpp-flylint.language": "c",
+    "c-cpp-flylint.standard": [
+        "c11"
+    ],
+    "c-cpp-flylint.flawfinder.enable": false,
+    "c-cpp-flylint.flexelint.enable": false,
+    "c-cpp-flylint.lizard.enable": false,
+    "c-cpp-flylint.cppcheck.extraArgs": [
+        "--quiet"
+    ]
+}
