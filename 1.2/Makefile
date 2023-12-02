@@ -10,7 +10,14 @@ build: main
 
 main : $(SRCS:.c=.o)
 	@$(CC) $^ -o $@
-# @cat test.txt | ./main
+# @cat input.txt | ./main
 
 %.o : %.c
 	@$(CC) $(C_FLAGS) $(I_FLAGS) -c $^ -o $@
+
+mem : main
+	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes ./$< input.txt
+
+clear :
+	@rm -vf *.o 
+	@rm -vf main 

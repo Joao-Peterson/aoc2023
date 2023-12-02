@@ -7,7 +7,7 @@
 #include <string.h>
 
 // read file to single heap string
-void *filetomem(char *filename, size_t *filesize){
+void *filetomem(const char *filename, size_t *filesize){
     FILE *file = fopen(filename, "r+b");
     if(file == NULL) return NULL;
 
@@ -15,7 +15,7 @@ void *filetomem(char *filename, size_t *filesize){
     size_t size = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    uint8_t *buffer = malloc(size + 1);
+    uint8_t *buffer = (uint8_t*)malloc(size + 1);
     fread(buffer, size, 1, file);
 
     fclose(file);

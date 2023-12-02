@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <string.h>
 
 // node in the string mathing tree
 typedef struct charnode_t charnode_t;
@@ -23,7 +24,7 @@ typedef struct{
 }strmatch_t;
 
 charnode_t *charnode_new(char *token, int value){
-	charnode_t *n = calloc(sizeof(charnode_t), 1);
+	charnode_t *n = (charnode_t *)calloc(sizeof(charnode_t), 1);
 	n->token = token;
 	n->value = value;
 	return n;
@@ -34,15 +35,15 @@ void charnode_save_token(charnode_t *n, char *token, size_t pos, int value){
 	if(token[pos] == '\0') return;
 
 	// if char node doesnt exist
-	if(n->nodes[token[pos]] == NULL){
+	if(n->nodes[(int)token[pos]] == NULL){
 		// on last char, burn final value
 		if(token[pos+1] == '\0')
-			n->nodes[token[pos]] = charnode_new(token, value);
+			n->nodes[(int)token[pos]] = charnode_new(token, value);
 		else
-			n->nodes[token[pos]] = charnode_new(NULL, 0);
+			n->nodes[(int)token[pos]] = charnode_new(NULL, 0);
 	}
 
-	charnode_save_token(n->nodes[token[pos]], token, pos + 1, value);
+	charnode_save_token(n->nodes[(int)token[pos]], token, pos + 1, value);
 }
 
 // compile tree
@@ -93,8 +94,8 @@ charnode_t *charnode_match_token(charnode_t *n, char *token, size_t pos){
 	if(n->token != NULL) return n;
 
 	// if char exists on tree, call recusively
-	if(n->nodes[token[pos]] != NULL)
-		charnode_match_token(n->nodes[token[pos]], token, pos + 1);
+	if(n->nodes[(int)token[pos]] != NULL)
+		return charnode_match_token(n->nodes[(int)token[pos]], token, pos + 1);
 	// if not, then no match
 	else
 		return NULL;
