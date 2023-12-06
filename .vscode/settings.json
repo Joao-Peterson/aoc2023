@@ -8,5 +8,21 @@
     "c-cpp-flylint.lizard.enable": false,
     "c-cpp-flylint.cppcheck.extraArgs": [
         "--quiet"
-    ]
+    ],
+    "files.associations": {
+        "*.h": "c",
+        "*.c": "c",
+        ".clangd": "yaml",
+        "*.m": "octave",
+        "*.json": "jsonc",
+        "*.pat": "rust",
+        "*.tcc": "c",
+        "chrono": "c",
+        "random": "c",
+        "format": "c",
+        "ranges": "c",
+        "functional": "c",
+        "tuple": "c",
+        "type_traits": "c"
+    }
 }

@@ -16,6 +16,7 @@
 			"environment": [],
 			"externalConsole": false,
 			"MIMode": "gdb",
+			"internalConsoleOptions": "neverOpen",
 			"setupCommands": [
 				{
 					"description": "Enable pretty-printing for gdb",
