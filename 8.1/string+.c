@@ -1,6 +1,4 @@
 #include "string+.h"
-#include <stdarg.h>
-#include <stdio.h>
 
 // ------------------------------------------------------------ String -------------------------------------------------------------
 
@@ -22,7 +20,7 @@ string *string_new(){
 	return string_new_sized(STRING_ALLOCATION_CHUNK);
 }
 
-string *string_copy(string *str){
+string *string_copy(const string *str){
 	if(str == NULL)
 		return string_new_sized(0);
 
@@ -32,7 +30,7 @@ string *string_copy(string *str){
 	return new;
 }
 
-string *string_from(char *raw){
+string *string_from(const char *raw){
 	if(raw == NULL)
 		return string_new_sized(0);
 		
@@ -78,24 +76,31 @@ void string_destroy(string *str){
 		free(str->raw);
 
 	free(str);
-	str = NULL;
 }
 
-void string_println(string *str){
+char *string_unwrap(string *str){
+	if(str == NULL) return NULL;
+	
+	char *raw = str->raw;
+	free(str);
+	return raw;
+}
+
+void string_println(const string *str){
 	printf("%s\n", str->raw == NULL ? "" : str->raw);
 }
 
-bool string_cmp(string *a, string *b){
+bool string_cmp(const string *a, const string *b){
 	if(a->raw == NULL || b->raw == NULL) return false;
 	return !strcmp(a->raw, b->raw);
 }
 
-bool string_cmp_raw(string *a, char *b){
+bool string_cmp_raw(const string *a, const char *b){
 	if(a->raw == NULL || b == NULL) return false;
 	return !strcmp(a->raw, b);
 }
 
-void _string_cat_raw(string *dest, char *src, size_t srclen){
+void _string_cat_raw(string *dest, const char *src, size_t srclen){
 	if(dest == NULL || src == NULL) return;
 
 	size_t len = dest->len + srclen;
@@ -116,13 +121,13 @@ void _string_cat_raw(string *dest, char *src, size_t srclen){
 	}
 }
 
-void string_cat_raw(string *dest, char *src){
+void string_cat_raw(string *dest, const char *src){
 	if(dest == NULL || src == NULL) return;
 
 	_string_cat_raw(dest, src, strlen(src));
 }
 
-void string_cat(string *dest, string *src){
+void string_cat(string *dest, const string *src){
 	if(dest == NULL || src == NULL) return;
 
 	_string_cat_raw(dest, src->raw, src->len);
@@ -136,9 +141,86 @@ void string_vwrite(string *str, const char *fmt, size_t buffer_size, va_list arg
 	string_destroy(expanded);
 }
 
+void string_vwriteLn(string *str, const char *fmt, size_t buffer_size, va_list args){
+	if(str == NULL || buffer_size == 0) return;
+	string_vwrite(str, fmt, buffer_size, args);
+	string_cat_raw(str, "\n");
+}
+
 void string_write(string *str, const char *fmt, size_t buffer_size, ...){
 	va_list args;
 	va_start(args, buffer_size);
 	string_vwrite(str, fmt, buffer_size, args);
 	va_end(args);
+}
+
+void string_writeLn(string *str, const char *fmt, size_t buffer_size, ...){
+	va_list args;
+	va_start(args, buffer_size);
+	string_vwrite(str, fmt, buffer_size, args);
+	string_cat_raw(str, "\n");
+	va_end(args);
+}
+
+string *string_from_file(FILE *file, size_t *read){
+    if(file == NULL) return NULL;
+
+    fseek(file, 0, SEEK_END);
+    size_t size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    uint8_t *buffer = (uint8_t*)malloc(size + 1);
+    fread(buffer, size, 1, file);
+
+    fclose(file);
+
+    buffer[size] = 0;
+
+    if(read != NULL)
+        *read = size;
+
+    return string_wrap((char*)buffer, true);
+}
+
+string *string_from_filename(const char *filename, size_t *read){
+    FILE *file = fopen(filename, "r+b");
+    if(file == NULL) return NULL;
+
+    return string_from_file(file, read);
+}
+
+string_ite_t string_split(const string *str, const char *tokens){
+	return (string_ite_t){.state = str->raw, .tokens = tokens};
+}
+
+string *string_next(string_ite_t *iterator){
+
+	size_t start = strspn(iterator->state, iterator->tokens);
+	size_t end = strcspn(iterator->state + start, iterator->tokens);
+	if(end == 0) return NULL;
+
+	char buffer[STRING_SPLIT_MAX_SIZE] = {0};
+	memcpy(buffer, iterator->state + start, end);
+
+	string *split = string_from(buffer);
+
+	iterator->state += start + end;
+	return split; 
+}
+
+size_t string_length(const string* str){
+	return str->len;
+}
+
+string *string_slice(const string *str, size_t from, size_t len){
+	if(str == NULL || (from + len) > str->len) return NULL;
+
+	char *buffer = malloc(sizeof(char) * (len + 1));
+	memcpy(buffer, str->raw + from, len);
+	buffer[len] = '\0';
+
+	string *ret = string_from(buffer);
+	free(buffer);
+
+	return ret;
 }

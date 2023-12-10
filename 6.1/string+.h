@@ -46,8 +46,8 @@ void string_cat_raw(string *dest, char *src);
 
 void string_cat(string *dest, string *src);
 
-void string_cat_vfmt(string *string, const char *fmt, size_t buffer_size, va_list args);
+void string_vwrite(string *string, const char *fmt, size_t buffer_size, va_list args);
 
-void string_cat_fmt(string *string, const char *fmt, size_t buffer_size, ...);
+void string_write(string *string, const char *fmt, size_t buffer_size, ...);
 
 #endif

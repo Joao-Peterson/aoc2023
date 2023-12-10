@@ -128,7 +128,7 @@ void string_cat(string *dest, string *src){
 	_string_cat_raw(dest, src->raw, src->len);
 }
 
-void string_cat_vfmt(string *str, const char *fmt, size_t buffer_size, va_list args){
+void string_vwrite(string *str, const char *fmt, size_t buffer_size, va_list args){
 	if(str == NULL || buffer_size == 0) return;
 
 	string *expanded = string_vsprint(fmt, buffer_size, args);
@@ -136,9 +136,9 @@ void string_cat_vfmt(string *str, const char *fmt, size_t buffer_size, va_list a
 	string_destroy(expanded);
 }
 
-void string_cat_fmt(string *str, const char *fmt, size_t buffer_size, ...){
+void string_write(string *str, const char *fmt, size_t buffer_size, ...){
 	va_list args;
 	va_start(args, buffer_size);
-	string_cat_vfmt(str, fmt, buffer_size, args);
+	string_vwrite(str, fmt, buffer_size, args);
 	va_end(args);
 }
