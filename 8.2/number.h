@@ -78,4 +78,19 @@ int64_t number_to_int(number_t num);
 */
 double number_to_float(number_t num);
 
+/**
+ * @brief find the greatestCommonDivisor using euclid's method 
+*/
+unsigned int greatestCommonDivisor(unsigned int a, unsigned int b);
+
+/**
+ * @brief find the leastCommonMultiple using euclid's greatestCommonDivisor
+*/
+unsigned int leastCommonMultiple(unsigned int a, unsigned int b);
+
+/**
+ * @brief find the leastCommonMultiple of a list of numbers using the table method with primes 
+*/
+uint64_t leastCommonMultipleN(uint64_t *values, size_t size);
+
 #endif

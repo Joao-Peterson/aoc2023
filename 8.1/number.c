@@ -3,7 +3,7 @@
 void getDigits(uint64_t value, uint16_t *digitsArray, uint16_t *size){
 	for(int i = 0; i < 20; i++){ // uint64max has 20 digits: 18446744073709551615
 		div_t d = div(value, 10);
-		digitsArray[0] = d.rem;
+		digitsArray[i] = d.rem;
 		value = d.quot;
 	}
 
@@ -211,14 +211,8 @@ number_t number_convert(number_t num, uint8_t base){
 	return new;
 }
 
-const char encodeHexNumber[256] = {
-	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+const char encodeHexNumber[] = {
+	'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
 };
 
 char *number_to_hexstring(number_t num){
@@ -226,6 +220,20 @@ char *number_to_hexstring(number_t num){
 
 	for(size_t i = 0; i < num.digitsSize; i++){
 		value[num.digitsSize - 1 - i] = encodeHexNumber[num.digits[i]];
+	}
+	
+	return value;
+}
+
+const char encodeNumberAlphabet[] = {
+	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
+};
+
+char *number_to_string_alphabet(number_t num){
+	char *value = calloc(sizeof(char), num.digitsSize + 1);
+
+	for(size_t i = 0; i < num.digitsSize; i++){
+		value[num.digitsSize - 1 - i] = encodeNumberAlphabet[num.digits[i]];
 	}
 	
 	return value;

@@ -12,6 +12,7 @@
 
 // mapped nodes
 typedef struct{
+	bool isEnd;
 	uint32_t left;
 	uint32_t right;
 }node_list_entry_t;
@@ -27,33 +28,29 @@ uint32_t node_list_key(const char name[4]){
 	return number_to_uint(key10);
 }
 
-void runList(node_list_t *list, uint32_t from, uint32_t to, char *dir, uint64_t *acc){
+void printNodeName(uint32_t node){
+	number_t name10 = number_from_uint(node);
+	number_t name26 = number_convert(name10, 26);
+	char *nameStr = number_to_string_alphabet(name26);
+	printf("%s", nameStr);
+	free(nameStr);
+}
+
+void runList(node_list_t *list, uint32_t from, char *dir, uint64_t *acc){
 	uint32_t next;
 	
 	if(dir == NULL || *dir == '\0')
 		dir = list->directions->raw;
-
 
 	if(*dir == 'L')
 		next = list->entries[from].left;
 	else
 		next = list->entries[from].right;
 
-	//! debug
-	// number_t name10 = number_from_uint(from);
-	// number_t name26 = number_convert(name10, 26);
-	// char *nameStr = number_to_string_alphabet(name26);
-
-	// number_t next10 = number_from_uint(next);
-	// number_t next26 = number_convert(next10, 26);
-	// char *nextStr = number_to_string_alphabet(next26);
-
-	// printf("Dir: %s\n%s = (%s)\n", dir, nameStr, nextStr);
-	// free(nameStr);
-	// free(nextStr);
-
-	if(!(next == to))
-		runList(list, next, to, ++dir, acc);
+	if(!(list->entries[next].isEnd))
+		runList(list, next, ++dir, acc);
+	else	
+		printNodeName(next);
 
 	(*acc)++;
 }
@@ -78,6 +75,11 @@ node_list_t parseInput(const string *data){
 			memcpy(buffer, line->raw + 0, 3);
 			uint32_t key = node_list_key(buffer);
 
+			if(buffer[2] == 'Z')
+				map.entries[key].isEnd = true;
+			else
+				map.entries[key].isEnd = false;
+
 			// left
 			memcpy(buffer, line->raw + 7, 3);
 			map.entries[key].left = node_list_key(buffer);
@@ -85,6 +87,7 @@ node_list_t parseInput(const string *data){
 			// right
 			memcpy(buffer, line->raw + 12, 3);
 			map.entries[key].right = node_list_key(buffer);
+
 
 			string_destroy(line);
 		}
@@ -108,16 +111,64 @@ int main(int argc, char**argv){
 	}
 
 	node_list_t map = parseInput(data);
-	uint64_t d = 0;
+	uint64_t d[6] = {0};
 	
+	printNodeName(node_list_key("JQA"));
+	printf(" = ");
+	runList(&map,
+		node_list_key("JQA"),
+		map.directions->raw,
+		d + 0
+	);
+	printf(" - %lu\n", d[0]);
+
+	printNodeName(node_list_key("NHA"));
+	printf(" = ");
+	runList(&map,
+		node_list_key("NHA"),
+		map.directions->raw,
+		d + 1
+	);
+	printf(" - %lu\n", d[1]);
+
+	printNodeName(node_list_key("AAA"));
+	printf(" = ");
 	runList(&map,
 		node_list_key("AAA"),
-		node_list_key("ZZZ"),
 		map.directions->raw,
-		&d
+		d + 2
 	);
+	printf(" - %lu\n", d[2]);
 
-	printf("%lu\n", d);
+	printNodeName(node_list_key("FSA"));
+	printf(" = ");
+	runList(&map,
+		node_list_key("FSA"),
+		map.directions->raw,
+		d + 3
+	);
+	printf(" - %lu\n", d[3]);
+
+	printNodeName(node_list_key("LLA"));
+	printf(" = ");
+	runList(&map,
+		node_list_key("LLA"),
+		map.directions->raw,
+		d + 4
+	);
+	printf(" - %lu\n", d[4]);
+
+	printNodeName(node_list_key("MNA"));
+	printf(" = ");
+	runList(&map,
+		node_list_key("MNA"),
+		map.directions->raw,
+		d + 5
+	);
+	printf(" - %lu\n", d[5]);
+
+
+	printf("%lu\n", leastCommonMultipleN(d, 6));
 
 	string_destroy(map.directions);
 	string_destroy(data);
