@@ -10,7 +10,7 @@
 			"request": "launch",
 			"preLaunchTask": "build",
 			"program": "${workspaceRoot}/${relativeFileDirname}/${fileBasenameNoExtension}",
-			"args": ["${workspaceRoot}/${relativeFileDirname}/input.txt"],
+			"args": ["${workspaceRoot}/${relativeFileDirname}/test.txt"],
 			"stopAtEntry": false,
 			"cwd": "${workspaceFolder}",
 			"environment": [],
