@@ -2,4 +2,4 @@
 
 My solutions for AOC2023!
 
-Folder structure: `(?'day'\d+)\.(?'part'\d+)`
+Folder structure: `(?'day'\d+)(\.(?'part'\d+))?`

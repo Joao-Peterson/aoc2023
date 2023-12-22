@@ -11,16 +11,23 @@
 #include "src/string+.h"
 #include "src/number.h"
 
+void printMatrix(char **m, size_t w, size_t h){
+	for(size_t i = 0; i < h; i++){
+		printf("%.*s\n", (int)w, m[i]);
+	}
+}
+
 // parse file
 void *parseInput(const string *data){
 
 	string_ite_t iterator = string_split(data, "\n");
 	for(string *line = string_next(&iterator); line != NULL; line = string_next(&iterator)){
-
+		string_destroy(line);
 	}
 
-	return NULL;
+	return ;
 }
+
 
 int main(int argc, char**argv){
 	string *data;
@@ -35,6 +42,9 @@ int main(int argc, char**argv){
 	}
 
 	//  = parseInput(data);
+	
+	// printf("Part 1: %lu\n", );
+	// printf("Part 2: %lu\n", );
 
 	string_destroy(data);
 	return 0;
