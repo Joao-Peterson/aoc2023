@@ -7,6 +7,7 @@ L_FLAGS+=-lm
 SRCS=main.c
 SRCS+=src/string+.c
 SRCS+=src/number.c
+SRCS+=src/hash.c
 
 .PHONY : main
 

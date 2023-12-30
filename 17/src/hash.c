@@ -17,6 +17,7 @@ uint64_t djb2_hash(const uint8_t *data, size_t size){
     while(i < size){
 		int c = *data++;
         hash = ((hash << 5) + hash) + c;
+        i++;
 	}
 		
     return hash;

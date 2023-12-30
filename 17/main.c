@@ -11,14 +11,27 @@
 #include "src/string+.h"
 #include "src/number.h"
 #include "src/hash.h"
+#include "src/data.h"
 
-void printMatrix(char **m, size_t w, size_t h){
+void printStringMatrix(const char **m, size_t w, size_t h){
 	for(size_t i = 0; i < h; i++){
 		printf("%.*s\n", (int)w, m[i]);
 	}
 }
 
-void printNumMatrix(char **m, size_t w, size_t h, bool commaSep){
+void printStringNumMatrix(char **m, size_t w, size_t h, bool commaSep){
+	for(size_t i = 0; i < h; i++){
+		for(size_t j = 0; j < w; j++){
+			if(commaSep && j > 0)
+				printf(", ");
+
+			printf("%d", m[i][j]);
+		}
+		printf("\n");
+	}
+}
+
+void printNumMatrix(int **m, size_t w, size_t h, bool commaSep){
 	for(size_t i = 0; i < h; i++){
 		for(size_t j = 0; j < w; j++){
 			if(commaSep && j > 0)
@@ -32,8 +45,6 @@ void printNumMatrix(char **m, size_t w, size_t h, bool commaSep){
 
 typedef struct{
 	char **heatLoss;
-	char **losses;
-	char **path;
 	int w;
 	int h;
 }rails_t;
@@ -42,12 +53,10 @@ typedef struct point_t point_t;
 struct point_t{
 	int x;
 	int y;
-	int travel;
 	int dirx;
 	int diry;
+	int travel;
 	int heat;
-	int fromx;
-	int fromy;
 	point_t *next;
 };
 
@@ -57,7 +66,7 @@ typedef struct{
 	size_t size;
 }pqueue_t;
 
-void pqueue_push(pqueue_t *q, int heat, int x, int y, int dirx, int diry, int travel, int fromx, int fromy){
+void pqueue_push(pqueue_t *q, int heat, int x, int y, int dirx, int diry, int travel){
 	point_t *p = calloc(1, sizeof(point_t));
 	p->y = y;
 	p->x = x;
@@ -66,8 +75,8 @@ void pqueue_push(pqueue_t *q, int heat, int x, int y, int dirx, int diry, int tr
 	p->dirx = dirx;
 	p->diry = diry;
 	p->travel = travel;
-	p->fromy = fromy;
-	p->fromx = fromx;
+	// p->fromy = fromy;
+	// p->fromx = fromx;
 
 	if(q->size == 0){
 		q->first = p;
@@ -120,164 +129,122 @@ point_t *pqueue_pop(pqueue_t *q){
 	return p;
 }
 
-bool bound(int x, int y, int x0, int x1, int y0, int y1){
-	return !(x < x0 || x > x1 || y < y0 || y > y1);
+bool inside(int y, int x, const rails_t *r){
+	return !(x < 0 || x > r->w - 1 || y < 0 || y > r->h - 1);
 }
 
 uint64_t part1(const rails_t *rails){
-	int visited[145][145][2] = {0};
-	memset(visited, -1, sizeof(int)*145*145*2);
-	bool seen[145][145][3][3][3] = {0};
-
-	uint64_t ret = 0;
 	pqueue_t q = {0};
+	// 141 * 141 area, out of wich, each cell could have different neirbour states of the 4 different directions with 3 different travel distances 
+	// 141*141*4*3 possible states, lets lowball it
+	// const int seenMax = 141*141*100;
+	bool seenM[141][141][3][3][3] = {0};
 
-	// start tl
-	pqueue_push(&q, 0, 0, 0, 0, 0, 0, -1, -1);
+	set_t *seen = set_new(141*141);
+	
+	int visited[141][141][2] = {0};
+	memset(visited, -1, sizeof(int)*141*141*2);
+	int losses[141][141] = {0};
+	for(int i = 0; i < 141; i++)
+		for(int j = 0; j < 141; j++)
+			losses[i][j] = 100000;
+
+	char path[141][141] = {0};
+	memset(path, ' ', sizeof(char)*141*141);
+	
+	uint64_t min = 0;
+
+	// start
+	pqueue_push(&q, 0, 0, 0, 1, 0, 0);
+
+	// consume less heated points
 	for(point_t *p = pqueue_pop(&q); p != NULL; p = pqueue_pop(&q)){
-		// if processed
-		if(seen[p->y][p->x][p->diry+1][p->dirx+1][p->travel])
+		
+		if(set_exists(seen, p, ((void*)(&p->travel + 1) - (void*)&p->x)) != seenM[p->x][p->y][p->dirx+1][p->diry+1][p->travel])
+			set_exists(seen, p, ((void*)(&p->travel + 1) - (void*)&p->x));
+
+		if(seenM[p->x][p->y][p->dirx+1][p->diry+1][p->travel])
 			continue;
 
-		// meta
-		seen[p->y][p->x][p->diry+1][p->dirx+1][p->travel] = true;
-		visited[p->y][p->x][0] = p->fromx;
-		visited[p->y][p->x][1] = p->fromy;
-		rails->losses[p->y][p->x] = p->heat;
+		seenM[p->x][p->y][p->dirx+1][p->diry+1][p->travel] = true;
+		set_add(seen, p, ((void*)(&p->travel + 1) - (void*)&p->x));
 
-		// end br
+		// if(set_exists(seen, p, ((void*)(&p->travel + 1) - (void*)&p->x)))
+		// 	continue;
+
+		// set_add(seen, p, ((void*)(&p->travel + 1) - (void*)&p->x));
+
+		visited[p->y][p->x][0] = p->y - p->diry;
+		visited[p->y][p->x][1] = p->x - p->dirx;
+		if(p->heat < losses[p->y][p->x])
+			losses[p->y][p->x] = p->heat;	
+
+		// end on bottom right
 		if(p->x == rails->w - 1 && p->y == rails->h - 1){
-			ret = p->heat; 
+			min = p->heat; 
 			break;
 		}
 
-		int newx = p->x + p->dirx;
-		int newy = p->y + p->diry;
-		// has direction and in within the travel limit
-		if(
-			(p->dirx || p->diry) && 
-			p->travel < 3 &&
-			bound(newx, newy, 0, rails->w - 1, 0, rails->h - 1)
-		){
+		int nx;
+		int ny;
+		int dx;
+		int dy;
+
+		// ahead
+		dx = p->dirx;
+		dy = p->diry;
+		nx = p->x + dx;
+		ny = p->y + dy;
+		if(inside(ny, nx, rails) && p->travel < 3){
 			pqueue_push(&q, 
-				p->heat + rails->heatLoss[newy][newx],
-				newx,
-				newy,
-				p->dirx, 
-				p->diry,
-				p->travel + 1,
-				p->x,
-				p->y
-			);
-		}		
-
-		// adjacent cells
-		int dirx;
-		int diry;
-		
-		// move on hor. axis if p dir is not on hor.
-		if(!p->dirx){
-			// right
-			dirx = 1;
-			diry = 0;
-			newx = p->x + dirx;
-			newy = p->y + diry;
-			if(bound(newx, newy, 0, rails->w - 1, 0, rails->h - 1)){
-				pqueue_push(&q, 
-					p->heat + rails->heatLoss[newy][newx],
-					newx,
-					newy,
-					dirx, 
-					diry,
-					1,
-					p->x,
-					p->y
-				);
-			}
-
-			// left
-			dirx = -1;
-			diry = 0;
-			newx = p->x + dirx;
-			newy = p->y + diry;
-			if(bound(newx, newy, 0, rails->w - 1, 0, rails->h - 1)){
-				pqueue_push(&q, 
-					p->heat + rails->heatLoss[newy][newx],
-					newx,
-					newy,
-					dirx, 
-					diry,
-					1,
-					p->x,
-					p->y
-				);
-			}
+				p->heat + rails->heatLoss[ny][nx],
+				nx, ny,
+				dx, dy,
+				p->travel + 1
+			);		
 		}
 
-		// move on ver. axis if p is not on ver.
-		if(!p->diry){
-			// down
-			dirx = 0;
-			diry = 1;
-			newx = p->x + dirx;
-			newy = p->y + diry;
-			if(bound(newx, newy, 0, rails->w - 1, 0, rails->h - 1)){
-				pqueue_push(&q, 
-					p->heat + rails->heatLoss[newy][newx],
-					newx,
-					newy,
-					dirx, 
-					diry,
-					1,
-					p->x,
-					p->y
-				);
-			}
-
-			// up
-			dirx = 0;
-			diry = -1;
-			newx = p->x + dirx;
-			newy = p->y + diry;
-			if(bound(newx, newy, 0, rails->w - 1, 0, rails->h - 1)){
-				pqueue_push(&q, 
-					p->heat + rails->heatLoss[newy][newx],
-					newx,
-					newy,
-					dirx, 
-					diry,
-					1,
-					p->x,
-					p->y
-				);
-			}
+		// adjacent side
+		dx = p->diry;
+		dy = p->dirx;
+		nx = p->x + dx;
+		ny = p->y + dy;
+		if(inside(ny, nx, rails)){
+			pqueue_push(&q, 
+				p->heat + rails->heatLoss[ny][nx],
+				nx, ny,
+				dx, dy,
+				1
+			);		
 		}
 
-		// int dirs[4][2] = {{0, 1}, {0, -1}, {1, 0}, {-1, 0}};
-		// for(size_t i = 0; i < 4; i++){
-		// 	if((dirs[i][0] != p->dirx && dirs[i][0] != -p->dirx) || (dirs[i][1] != p->diry && dirs[i][1] != -p->diry)){
-		// 		newx = p->x + dirs[i][0];
-		// 		newy = p->y + dirs[i][1];
-		// 		if(bound(newx, newy, 0, rails->w - 1, 0, rails->h - 1)){
-		// 			pqueue_push(&q, 
-		// 				p->heat + rails->heatLoss[newy][newx],
-		// 				newx,
-		// 				newy,
-		// 				dirs[i][0], 
-		// 				dirs[i][1],
-		// 				1,
-		// 				p->x,
-		// 				p->y
-		// 			);
-		// 		}
-		// 	}
-		// }
+		// other adjacent side
+		dx = - p->diry;
+		dy = - p->dirx;
+		nx = p->x + dx;
+		ny = p->y + dy;
+		if(inside(ny, nx, rails)){
+			pqueue_push(&q, 
+				p->heat + rails->heatLoss[ny][nx],
+				nx, ny,
+				dx, dy,
+				1
+			);		
+		}
 	}
 
 	printf("Heatloss:\n");
-	printNumMatrix(rails->heatLoss, rails->w, rails->h, false);
+	printStringNumMatrix(rails->heatLoss, rails->w, rails->h, false);
 	printf("Losses:\n");
-	printNumMatrix(rails->losses, rails->w, rails->h, true);
+	for(int i = 0; i < rails->h; i++){
+		for(int j = 0; j < rails->w; j++){
+			if(j > 0)
+				printf(", ");
+
+			printf("%d", losses[i][j]);
+		}
+		printf("\n");
+	}
 
 	// printf("From:\n");
 	// for(int i = 0; i < rails->h; i++){
@@ -304,9 +271,10 @@ uint64_t part1(const rails_t *rails){
 	// }
 
 	// printf("Path:\n");
-	// printMatrix(rails->path, rails->w, rails->h);
+	// printStringMatrix(rails->path, rails->w, rails->h);
 
-	return ret;
+	set_destroy(seen);
+	return min;
 }
 
 // parse file
@@ -315,8 +283,6 @@ void *parseInput(const string *data){
 	string_ite_t iterator = string_split(data, "\n");
 	rails_t *rails = calloc(1, sizeof(rails_t));
 	rails->heatLoss = calloc(150, sizeof(char*));
-	rails->losses = calloc(150, sizeof(char*));
-	rails->path = calloc(150, sizeof(char*));
 
 	for(string *line = string_next(&iterator); line != NULL; line = string_next(&iterator)){
 		rails->w = line->len;
@@ -324,10 +290,6 @@ void *parseInput(const string *data){
 		for(size_t i = 0; i < line->len; i++)
 			line->raw[i] -= '0';
 			
-		rails->losses[rails->h] = calloc(line->len + 1, sizeof(char));
-		memset(rails->losses[rails->h], 0, line->len);
-		rails->path[rails->h] = calloc(line->len + 1, sizeof(char));
-		memset(rails->path[rails->h], ' ', line->len);
 		rails->heatLoss[rails->h] = string_unwrap(line);
 		rails->h++;
 	}
