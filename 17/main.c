@@ -137,10 +137,7 @@ uint64_t part1(const rails_t *rails){
 	pqueue_t q = {0};
 	// 141 * 141 area, out of wich, each cell could have different neirbour states of the 4 different directions with 3 different travel distances 
 	// 141*141*4*3 possible states, lets lowball it
-	// const int seenMax = 141*141*100;
-	bool seenM[141][141][3][3][3] = {0};
-
-	set_t *seen = set_new(141*141);
+	set_t *seen = set_new(141*141*4*3);
 	
 	int visited[141][141][2] = {0};
 	memset(visited, -1, sizeof(int)*141*141*2);
@@ -160,19 +157,10 @@ uint64_t part1(const rails_t *rails){
 	// consume less heated points
 	for(point_t *p = pqueue_pop(&q); p != NULL; p = pqueue_pop(&q)){
 		
-		if(set_exists(seen, p, ((void*)(&p->travel + 1) - (void*)&p->x)) != seenM[p->x][p->y][p->dirx+1][p->diry+1][p->travel])
-			set_exists(seen, p, ((void*)(&p->travel + 1) - (void*)&p->x));
-
-		if(seenM[p->x][p->y][p->dirx+1][p->diry+1][p->travel])
+		if(set_exists(seen, p, ((void*)(&p->travel + 1) - (void*)&p->x)))
 			continue;
 
-		seenM[p->x][p->y][p->dirx+1][p->diry+1][p->travel] = true;
 		set_add(seen, p, ((void*)(&p->travel + 1) - (void*)&p->x));
-
-		// if(set_exists(seen, p, ((void*)(&p->travel + 1) - (void*)&p->x)))
-		// 	continue;
-
-		// set_add(seen, p, ((void*)(&p->travel + 1) - (void*)&p->x));
 
 		visited[p->y][p->x][0] = p->y - p->diry;
 		visited[p->y][p->x][1] = p->x - p->dirx;

@@ -1,6 +1,170 @@
 #include "data.h"
 #include "hash.h"
 
+// ------------------------------------------------------------ Linked list --------------------------------------------------------
+
+linkedlist_t *linkedlist_new(bool takeOwnership){
+	linkedlist_t *ll = calloc(1, sizeof(linkedlist_t));
+	ll->onws = takeOwnership;
+	return ll;
+}
+
+void linkedlist_destroy(linkedlist_t *ll){
+	if(ll->size > 0){
+		node_t *cursor = ll->first;
+		node_t *t;
+		while(cursor != NULL){
+			t = cursor->next;
+
+			if(ll->onws)
+				free(cursor->value);
+			
+			free(cursor);
+			cursor = t;
+		}
+	}
+
+	free(ll);
+}
+
+// ------------------------------------------------------------ Queue --------------------------------------------------------------
+
+queue_t *queue_new(bool takeOwnership){
+	return linkedlist_new(takeOwnership);
+}
+
+void queue_destroy(queue_t *q){
+	linkedlist_destroy(q);
+}
+
+void queue_push(queue_t *q, void *value){
+	node_t *new = calloc(1, sizeof(node_t));
+	new->value = value;
+	
+	if(q->size > 0){
+		q->last->next = new;
+		new->prev = q->last;
+		q->last = new;
+	}
+	else{
+		q->first = new;
+		q->last = new;
+	}
+
+	q->size++;
+}
+
+void *queue_pop(queue_t *q){
+	void *ret = NULL;
+
+	if(q->size > 1){
+		ret = q->first->value;
+		q->first = q->first->next;
+		free(q->first->prev);
+		q->first->prev = NULL;
+	}
+	else if(q->size == 1){
+		ret = q->first->value;
+		free(q->first);
+		q->first = NULL;
+		q->last = NULL;
+	}
+	
+	q->size--;
+	return ret;
+}
+
+// ------------------------------------------------------------ Priority Queue -----------------------------------------------------
+
+pqueue_t *pqueue_new(valueCmpFunction cmpFunc, bool takeOwnership){
+	pqueue_t *pq = calloc(1, sizeof(pqueue_t));
+	pq->onws = takeOwnership;
+	pq->cmpFunc = cmpFunc;
+	return pq;
+}
+
+void pqueue_destroy(pqueue_t *pq){
+	linkedlist_destroy((linkedlist_t*)pq);
+}
+
+void pqueue_push(pqueue_t *pq, void *value){
+	node_t *new = calloc(1, sizeof(node_t));
+	new->value = value;
+	
+	if(pq->size > 0){
+		node_t *cursor;
+		for(cursor = pq->last; cursor != NULL; cursor = cursor->prev){
+			if(!pq->cmpFunc(new->value, cursor->value)){
+				if(cursor == pq->last){
+					pq->last = new;
+					cursor->next = new;
+					new->prev = cursor;
+				}
+				else{
+					cursor->next->prev = new;
+					new->next = cursor->next;
+					cursor->next = new;
+					new->prev = cursor;
+				}
+
+				break;
+			}
+		}
+
+		if(cursor == NULL){
+			pq->first->prev = new;
+			new->next = pq->first;
+			pq->first = new;
+		}
+	}
+	else{
+		pq->first = new;
+		pq->last = new;
+	}
+
+	pq->size++;
+}
+
+void *pqueue_pop(pqueue_t *pq){
+	return queue_pop((queue_t*)pq);
+}
+
+// ------------------------------------------------------------ Stack --------------------------------------------------------------
+
+stack_t *stack_new(bool takeOwnership){
+	return linkedlist_new(takeOwnership);
+}
+
+void stack_destroy(stack_t *q){
+	linkedlist_destroy(q);
+}
+
+void stack_push(stack_t *q, void *value){
+	queue_push(q, value);
+}
+
+void *stack_pop(stack_t *q){
+	void *ret = NULL;
+
+	if(q->size > 1){
+		ret = q->last->value;
+		q->last = q->last->prev;
+		free(q->last->next);
+		q->last->next = NULL;
+	}
+	else if(q->size == 1){
+		ret = q->last->value;
+		free(q->last);
+		q->first = NULL;
+		q->last = NULL;
+	}
+	
+	q->size--;
+	return ret;
+}
+
+// ------------------------------------------------------------ Hash table ---------------------------------------------------------
+
 uint32_t defaultHashTableHashFunction(const uint8_t *data, size_t size, size_t max){
 	return djb2_hash(data, size) % max;
 }
@@ -71,6 +235,8 @@ node_t *hashtable_chained_get_value(hashtable_chained_t *h, void *key, size_t ke
 	return hashtable_chained_get(h, hash);
 }
 
+// ------------------------------------------------------------ Set ----------------------------------------------------------------
+
 set_t *set_new(size_t size){
 	set_t *s = malloc(sizeof(set_t));
 	s->size = size;
@@ -87,14 +253,15 @@ void set_destroy(set_t *s){
 	hashtable_chained_destroy(s->table);
 }
 
-void set_add(set_t *set, void *value, size_t size){
-	if(set->pos + 1 >= set->size) return;
+int set_add(set_t *set, void *value, size_t size){
+	if(set->pos + 1 >= set->size) return -1;
 
 	uint32_t hash = set->table->hash(value, size, set->table->size);
 	uint32_t pos = hashtable_chained_set(set->table, hash, value);
 	set->array[set->pos] = hash;
 	set->tablePos[set->pos] = pos;
 	set->pos++;
+	return set->pos;
 }
 
 void *set_get(set_t *set, size_t pos){
