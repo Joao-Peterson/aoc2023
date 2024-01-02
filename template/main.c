@@ -11,6 +11,7 @@
 #include "src/string+.h"
 #include "src/number.h"
 #include "src/hash.h"
+#include "src/data.h"
 
 void printMatrix(char **m, size_t w, size_t h){
 	for(size_t i = 0; i < h; i++){

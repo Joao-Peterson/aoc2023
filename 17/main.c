@@ -216,6 +216,10 @@ uint64_t part1(const rails_t *rails){
 
 	printf("Path:\n");
 	for(i = 0; i < rails->h; i++){
+		for(int j = 0; j < rails->w; j++){
+			printf("%d", rails->heatLoss[i][j]);
+		}
+		printf("                                         ");
 		printf("%.*s\n", (int)rails->w, path[i]);
 	}
 
@@ -314,48 +318,48 @@ uint64_t part2(const rails_t *rails){
 		}
 	}
 
-	printf("Heatloss:\n");
-	printStringNumMatrix(rails->heatLoss, rails->w, rails->h, false);
-	printf("Losses:\n");
-	for(int i = 0; i < rails->h; i++){
-		for(int j = 0; j < rails->w; j++){
-			if(j > 0)
-				printf(", ");
+	// printf("Heatloss:\n");
+	// printStringNumMatrix(rails->heatLoss, rails->w, rails->h, false);
+	// printf("Losses:\n");
+	// for(int i = 0; i < rails->h; i++){
+	// 	for(int j = 0; j < rails->w; j++){
+	// 		if(j > 0)
+	// 			printf(", ");
 
-			printf("%d", losses[i][j]);
-		}
-		printf("\n");
-	}
+	// 		printf("%d", losses[i][j]);
+	// 	}
+	// 	printf("\n");
+	// }
 
-	printf("From:\n");
-	for(int i = 0; i < rails->h; i++){
-		for(int j = 0; j < rails->w; j++){
-			if(j > 0)
-				printf(", ");
+	// printf("From:\n");
+	// for(int i = 0; i < rails->h; i++){
+	// 	for(int j = 0; j < rails->w; j++){
+	// 		if(j > 0)
+	// 			printf(", ");
 
-			if(visited[i][j][0] == -1 && visited[i][j][1] == -1)
-				printf("[%c,%c]", '#', '#');
-			else
-				printf("[%d,%d]", visited[i][j][0], visited[i][j][1]);
-		}
-		printf("\n");
-	}
+	// 		if(visited[i][j][0] == -1 && visited[i][j][1] == -1)
+	// 			printf("[%c,%c]", '#', '#');
+	// 		else
+	// 			printf("[%d,%d]", visited[i][j][0], visited[i][j][1]);
+	// 	}
+	// 	printf("\n");
+	// }
 
-	int tx = rails->w - 1, ty = rails->h - 1;
-	int i = 0;
-	for(int x = tx, y = ty; x > -1 && y > -1; tx = visited[y][x][1], ty = visited[y][x][0], x = tx, y = ty){
-		path[y][x] = '#';
-		i++;
+	// int tx = rails->w - 1, ty = rails->h - 1;
+	// int i = 0;
+	// for(int x = tx, y = ty; x > -1 && y > -1; tx = visited[y][x][1], ty = visited[y][x][0], x = tx, y = ty){
+	// 	path[y][x] = '#';
+	// 	i++;
 
-		// anti blowup
-		if(i > 1000)
-			break;
-	}
+	// 	// anti blowup
+	// 	if(i > 1000)
+	// 		break;
+	// }
 
-	printf("Path:\n");
-	for(i = 0; i < rails->h; i++){
-		printf("%.*s\n", (int)rails->w, path[i]);
-	}
+	// printf("Path:\n");
+	// for(i = 0; i < rails->h; i++){
+	// 	printf("%.*s\n", (int)rails->w, path[i]);
+	// }
 
 	pqueue_destroy(q);
 	set_destroy(seen);
