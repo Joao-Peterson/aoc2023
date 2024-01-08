@@ -36,13 +36,37 @@ typedef struct{
 	size_t size;
 }list_t;
 
-linkedlist_t *linkedlist_new(bool takeOwnership);
+list_t *list_new(bool takeOwnership);
 
-void linkedlist_destroy(linkedlist_t *ll);
+void list_destroy(list_t *ll);
+
+// ------------------------------------------------------------ Dynamic Array ------------------------------------------------------
+
+typedef struct{
+	void **raw;
+	size_t blockSize;
+	size_t allocated;
+	size_t size;
+	bool onws;
+}array_t;
+
+array_t *array_new();
+
+array_t *array_new_wconf(size_t blockAllocSize, bool takeOwnership);
+
+void array_destroy(array_t *a);
+
+void array_set(array_t *a, size_t pos, void *value);
+
+size_t array_add(array_t *a, void *value);
+
+size_t array_len(const array_t *a);
+
+void *array_get(const array_t *a, size_t pos);
 
 // ------------------------------------------------------------ Queue --------------------------------------------------------------
 
-typedef linkedlist_t queue_t;
+typedef list_t queue_t;
 
 queue_t *queue_new(bool takeOwnership);
 
@@ -72,7 +96,7 @@ void *pqueue_pop(pqueue_t *pq);
 
 // ------------------------------------------------------------ Stack --------------------------------------------------------------
 
-typedef linkedlist_t stack_t;
+typedef list_t stack_t;
 
 stack_t *stack_new(bool takeOwnership);
 
@@ -89,24 +113,24 @@ typedef struct{
 	uint32_t size;
 	bool onws;
 	hashFunction hash;
-}hashtable_chained_t;
+}hashtable_t;
 
-hashtable_chained_t *hashtable_chained_new(size_t size, bool takeOwnership, hashFunction f);
+hashtable_t *hashtable_new(size_t size, bool takeOwnership, hashFunction f);
 
-void hashtable_chained_destroy(hashtable_chained_t *ht);
+void hashtable_destroy(hashtable_t *ht);
 
-uint32_t hashtable_chained_set(hashtable_chained_t *h, uint32_t hash, void *value);
+uint32_t hashtable_set(hashtable_t *h, char *key, void *value);
 
-uint32_t hashtable_chained_set_value(hashtable_chained_t *h, void *key, size_t keySize, void *value);
+node_t *hashtable_get(hashtable_t *h, char *key);
 
-node_t *hashtable_chained_get(hashtable_chained_t *h, uint32_t hash);
+uint32_t hashtable_set_bin(hashtable_t *h, void *key, size_t keySize, void *value);
 
-node_t *hashtable_chained_get_value(hashtable_chained_t *h, void *key, size_t keySize);
+node_t *hashtable_get_bin(hashtable_t *h, void *key, size_t keySize);
 
 // ------------------------------------------------------------ Set ----------------------------------------------------------------
 
 typedef struct{
-	hashtable_chained_t *table;
+	hashtable_t *table;
 	uint32_t *array;
 	uint16_t *tablePos;
 	size_t size;
