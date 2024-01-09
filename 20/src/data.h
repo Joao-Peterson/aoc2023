@@ -17,15 +17,24 @@ struct node_t{
 
 typedef uint32_t(*hashFunction)(const uint8_t *data, size_t size, size_t max);
 
+typedef enum{
+	priority_reject = 0,
+	priority_accept = 1,
+	priority_left,
+	priority_right,
+}priority_t;
+
 /**
  * @brief this function should return: 
- * true, if 'a' should be put before of 'b'
- * false, if 'b' should be put before of 'a'.
- * Remember to cast the void* to the correct pointer type of your data 
+ * priority_right, if 'a' should be put before of 'b'
+ * priority_left, if 'a' should be put after of 'b'
+ * priority_reject, if 'a' shall not be inserted
+ * Remember that lists, queues and stacks grow to the left
+ * Remember to cast the void* to the correct pointer type of your data
  * @param a: is always the element to be inserted
  * @param b: is an element already in
 */
-typedef bool(*valueCmpFunction)(void *a, void *b);
+typedef priority_t(*valueCmpFunction)(void *a, void *b);
 
 // ------------------------------------------------------------ Linked list --------------------------------------------------------
 
@@ -38,7 +47,17 @@ typedef struct{
 
 list_t *list_new(bool takeOwnership);
 
-void list_destroy(list_t *ll);
+void list_destroy(list_t *l);
+
+void list_push(list_t *l, void *value);
+
+void list_push_unique(list_t *l, void *value, valueCmpFunction cmpFunc);
+
+void list_push_priority(list_t *l, void *value, valueCmpFunction cmpFunc);
+
+void *list_queue_pop(list_t *l);
+
+void *list_stack_pop(list_t *l);
 
 // ------------------------------------------------------------ Dynamic Array ------------------------------------------------------
 

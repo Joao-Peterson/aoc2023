@@ -44,14 +44,32 @@ void list_push(list_t *l, void *value){
 	l->size++;
 }
 
-void list_push_priority(list_t *l, valueCmpFunction cmpFunc, void *value){
+void list_push_unique(list_t *l, void *value, valueCmpFunction cmpFunc){
+	for(node_t *node = l->last; node != NULL; node = node->prev){
+		if(cmpFunc(value, node->value) == priority_reject)
+			return;
+	}
+
+	list_push(l, value);
+}
+
+void list_push_priority(list_t *l, void *value, valueCmpFunction cmpFunc){
 	node_t *new = calloc(1, sizeof(node_t));
 	new->value = value;
 	
 	if(l->size > 0){
 		node_t *cursor;
 		for(cursor = l->last; cursor != NULL; cursor = cursor->prev){
-			if(!cmpFunc(new->value, cursor->value)){
+			priority_t cmp = cmpFunc(new->value, cursor->value);
+
+			if(cmp == priority_reject){
+				if(l->onws)
+					free(value);
+				free(new);
+				return;
+			}
+
+			if(cmp == priority_left){
 				if(cursor == l->last){
 					l->last = new;
 					cursor->next = new;
@@ -258,7 +276,16 @@ void pqueue_push(pqueue_t *pq, void *value){
 	if(pq->size > 0){
 		node_t *cursor;
 		for(cursor = pq->last; cursor != NULL; cursor = cursor->prev){
-			if(!pq->cmpFunc(new->value, cursor->value)){
+			priority_t cmp = pq->cmpFunc(new->value, cursor->value);
+
+			if(cmp == priority_reject){
+				if(pq->onws)
+					free(value);
+				free(new);
+				return;
+			}
+
+			if(cmp == priority_left){
 				if(cursor == pq->last){
 					pq->last = new;
 					cursor->next = new;
