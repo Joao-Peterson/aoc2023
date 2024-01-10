@@ -463,7 +463,7 @@ int set_add(set_t *set, void *value, size_t size){
 	return set->pos;
 }
 
-void *set_get(set_t *set, size_t pos){
+node_t *set_get(set_t *set, size_t pos){
 	if(pos > set->pos) return NULL;
 
 	uint32_t hash = set->array[pos];

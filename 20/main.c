@@ -36,7 +36,8 @@ typedef struct{
 
 typedef struct{
 	module_t *broadcaster;
-	module_t *rx;
+	module_t *rx_in;
+	array_t *rx_inputs;
 }configuration_t;
 
 array_t *parseModulesNames(const string *str){
@@ -54,6 +55,7 @@ array_t *parseModulesNames(const string *str){
 configuration_t *parseInput(const string *data){
 
 	configuration_t *conf = calloc(1, sizeof(configuration_t));
+	conf->rx_inputs = array_new();
 	array_t *names = array_new();
 	hashtable_t *modules = hashtable_new(100000, false, NULL);
 
@@ -116,7 +118,7 @@ configuration_t *parseInput(const string *data){
 				submod = final;
 
 				if(string_cmp_raw(n, "rx"))
-					conf->rx = final;
+					conf->rx_in = mod;
 			}
 			else{
 				submod = node->value;
@@ -130,22 +132,23 @@ configuration_t *parseInput(const string *data){
 		}
 	}
 
+	// get rx inputs
+	// create tree
+	for(size_t i = 0; i < names->size; i++){
+		string *name = array_get(names, i);
+		module_t *mod = hashtable_get(modules, name->raw)->value;
+
+		for(size_t m = 0; m < mod->modulesSize; m++){
+			if(mod->modules[m] == conf->rx_in)
+				array_add(conf->rx_inputs, mod);
+		}
+	}
+
 	// array_destroy(names);
 	// hashtable_destroy(modules);
 	string_destroy(dd);
 	string_destroy(dataNew);
 	return conf;
-}
-
-priority_t signalCmp(void *a, void *b){
-	signal_t *sa = (signal_t*)a;
-	signal_t *sb = (signal_t*)b;
-
-	// reject repeating signals
-	// if(sa->module == sb->module) return priority_reject;
-
-	// always at the end
-	return priority_accept;
 }
 
 void signal_push(queue_t *q, bool signal, module_t *from, module_t *module){
@@ -154,7 +157,7 @@ void signal_push(queue_t *q, bool signal, module_t *from, module_t *module){
 	s->signal = signal;
 	s->module = module;
 
-	list_push_unique(q, s, signalCmp);
+	queue_push(q, s);
 }
 
 signal_t *signal_pop(queue_t *q){
@@ -164,26 +167,18 @@ signal_t *signal_pop(queue_t *q){
 uint64_t part1(const configuration_t *c){
 	uint64_t lows = 0, highs = 0;
 	queue_t *sq = queue_new(true);
-	uint64_t brx = 0;
 
-	for(size_t b = 0; b < 10000; b++){
-		// printf("%lu\n", b);
-		
+	for(size_t b = 0; b < 1000; b++){
 		// button
 		signal_push(sq, 0, NULL, c->broadcaster);
 
 		for(signal_t *sig = signal_pop(sq); sig != NULL; sig = signal_pop(sq)){
-			if(sig->module == c->rx && sig->signal == 0){
-				// printf("-%s-> rx\n", sig->signal ? "high" : "low");
-				brx = b + 1;
-			}
-			
 			if(sig->signal)
 				highs++;
 			else
 				lows++;
 
-			printf("%s -%s-> %s\n", sig->from == NULL ? "NULL" : sig->from->name->raw, sig->signal ? "high" : "low", sig->module->name->raw);
+			// printf("%s -%s-> %s\n", sig->from == NULL ? "NULL" : sig->from->name->raw, sig->signal ? "high" : "low", sig->module->name->raw);
 
 			// send signals
 			switch(sig->module->type){
@@ -228,10 +223,90 @@ uint64_t part1(const configuration_t *c){
 		}
 	}
 
-	// too high 1334258160
-	printf("Part 1: %lu\n", highs * lows);
-	printf("Part 2: %lu\n", brx);
 	return highs * lows;
+}
+
+int64_t mod_exists(const array_t *modules, const module_t *mod){
+	for(size_t i = 0; i < modules->size; i++){
+		if(array_get(modules, i) == mod)
+			return i;
+	}
+
+	return -1;
+}
+
+uint64_t part2(const configuration_t *c){
+	queue_t *sq = queue_new(true);
+	size_t cnt = 0;
+	uint64_t diff[100] = {0};
+	uint64_t last[100] = {0};
+	uint64_t presses[100] = {0};
+
+	for(size_t b = 0; cnt < c->rx_inputs->size; b++){
+		// button
+		signal_push(sq, 0, NULL, c->broadcaster);
+
+		for(signal_t *sig = signal_pop(sq); sig != NULL; sig = signal_pop(sq)){
+			if(sig->module == c->rx_in && sig->signal == 1){
+				int64_t p = mod_exists(c->rx_inputs, sig->from);
+
+				if(presses[p] == 0){
+					// wait to stabilize
+					if(b + 1 - last[p] == diff[p]){
+						presses[p] = diff[p];
+						cnt++;
+					}
+					else{
+						diff[p] = b + 1 - last[p];
+						last[p] = b + 1;
+					}
+				}
+			}
+			
+			// send signals
+			switch(sig->module->type){
+				// flip flop
+				case '%':
+					if(sig->signal == 1)
+						break;
+				
+					sig->module->state[0] ^= 1; // flip
+
+					for(size_t i = 0; i < sig->module->modulesSize; i++)
+						signal_push(sq, sig->module->state[0], sig->module, sig->module->modules[i]);
+				break;
+
+				// conjunction
+				case '&':
+					sig->module->state[sig->from->id] = sig->signal;
+
+					bool all = true;
+					for(size_t j = 0; j < 100; j++){
+						if(sig->module->state[j] != 1){
+							all = false;
+							break;
+						}
+					}
+				
+					for(size_t i = 0; i < sig->module->modulesSize; i++)
+						signal_push(sq, !all, sig->module, sig->module->modules[i]);
+				break;
+
+				// pass through
+				case 0:
+					for(size_t i = 0; i < sig->module->modulesSize; i++)
+						signal_push(sq, sig->signal, sig->module, sig->module->modules[i]);
+				break;
+
+				default:
+				break;
+			}
+
+			free(sig);
+		}
+	}
+
+	return leastCommonMultipleN(presses, c->rx_inputs->size);
 }
 
 int main(int argc, char**argv){
@@ -248,7 +323,10 @@ int main(int argc, char**argv){
 
 	configuration_t *configuration = parseInput(data);
 	
-	part1(configuration);
+	// too high 1334258160
+	printf("Part 1: %lu\n", part1(configuration));
+	// to low 22803499706691
+	printf("Part 2: %lu\n", part2(configuration));
 
 	string_destroy(data);
 	return 0;

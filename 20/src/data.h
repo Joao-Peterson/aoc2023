@@ -162,7 +162,7 @@ void set_destroy(set_t *s);
 
 int set_add(set_t *set, void *value, size_t size);
 
-void *set_get(set_t *set, size_t pos);
+node_t *set_get(set_t *set, size_t pos);
 
 bool set_exists(set_t *set, void *value, size_t size);
 
