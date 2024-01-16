@@ -93,7 +93,7 @@ void fill_pos_push_d(queue_t *q, size_t x, size_t y, size_t d){
 	queue_push(q, new); 
 }
 
-void flood_fill_matrix_distance(matrix_t *m, size_t startx, size_t starty, int ignore, int empty, int maxDistance){
+void flood_fill_matrix_distance(matrix_t *m, size_t startx, size_t starty, int maxDistance){
 	queue_t *q = queue_new(true);
 	
 	fill_pos_push_d(q, startx, starty, 0);
@@ -104,10 +104,12 @@ void flood_fill_matrix_distance(matrix_t *m, size_t startx, size_t starty, int i
 
 		if(
 			n.d <= maxDistance &&
-			m->rows[n.y][n.x] != ignore && 
-			(m->rows[n.y][n.x] == empty || n.d < m->rows[n.y][n.x])
+			n.d <= m->rows[n.y][n.x]
 		){
 			m->rows[n.y][n.x] = n.d;
+			// string *s = matrix_print_trunc(m, 3);
+			// string_println(s);
+			// string_destroy(s);
 
 			// left
 			if(n.x > 0)

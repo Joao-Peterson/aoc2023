@@ -612,16 +612,34 @@ string *matrix_print_int(const matrix_t *m, int intWidth, char colSep, char rowS
 	// + m->h * m->w * 5 for numbers
 	// + m->h * m->w for commas
 	// + m->h for line endings
+	int max = 1;
+	for(int w = 0; w < intWidth; w++)
+		max *= 10;
+
+	// increment to always have one more with to compensate the extra space of 'printf("% *d")' 
+	intWidth++;
+	
 	string *s = string_new_sized(m->h * m->w * 5 + m->w * m->h + m->h);
 	for(size_t i = 0; i < m->h; i++){
 		for(size_t j = 0; j < m->w; j++){
 			if(j > 0 && colSep)
 				string_write(s, "%c", 2, colSep);
 
-			if(intWidth)
-				string_write(s, "%0*d", 15, intWidth, m->rows[i][j]);
-			else
-				string_write(s, "%d", 15, m->rows[i][j]);
+			if(intWidth){
+				int toPrint = 0;
+				if(m->rows[i][j] < 0)
+					// for negative numbers its the opposite
+					toPrint = m->rows[i][j] <= -max ? -max + 1 : m->rows[i][j];
+				else
+					// if has width, print min of n digits of the number, which if bigger than the maximum of digits, will be truncated as max - 1
+					// So width 3 is a max of 1000, the number 5000 is >= 1000 so it will be 1000 - 1 = 999
+					toPrint = m->rows[i][j] >= max ? max - 1 : m->rows[i][j];
+					
+				string_write(s, "% *d", 15, intWidth, toPrint);
+			}
+			else{
+				string_write(s, "% d", 15, m->rows[i][j]);
+			}
 		}
 
 		if(rowSep)

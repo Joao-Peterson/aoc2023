@@ -7,7 +7,6 @@
 #include <regex.h>
 #include <math.h>
 #include "src/worker.h"
-#include "src/utils.h"
 #include "src/string+.h"
 #include "src/number.h"
 #include "src/hash.h"

@@ -16,6 +16,15 @@
 // ammount of characters to return from split iterator
 #define STRING_SPLIT_MAX_SIZE 2048
 
+// ansi escape define foreground color
+#define FOREGROUND_COLOR "\x1b[38;2;%d;%d;%dm"
+
+// ansi escape define background color
+#define BACKGROUND_COLOR "\x1b[48;2;%d;%d;%dm"
+
+// ansi escape reset color
+#define RESET_COLOR "\x1b[m"
+
 // ------------------------------------------------------------ Types --------------------------------------------------------------
 
 /**
