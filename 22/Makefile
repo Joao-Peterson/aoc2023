@@ -3,6 +3,7 @@ C_FLAGS=-g
 I_FLAGS=-I./
 L_FLAGS=-lpthread
 L_FLAGS+=-lm
+L_FLAGS+=-lraylib
 
 SRCS=main.c
 SRCS+=src/string+.c

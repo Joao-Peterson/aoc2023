@@ -53,7 +53,7 @@ void list_push(list_t *l, void *value);
 
 void list_push_unique(list_t *l, void *value, valueCmpFunction cmpFunc);
 
-void list_push_priority(list_t *l, void *value, valueCmpFunction cmpFunc);
+void list_priority_push(list_t *l, void *value, valueCmpFunction cmpFunc);
 
 void *list_queue_pop(list_t *l);
 

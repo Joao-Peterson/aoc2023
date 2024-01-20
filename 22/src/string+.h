@@ -47,12 +47,13 @@ typedef struct{
 */
 typedef struct string_ite string_ite;
 typedef string (*string_ite_next_func)(string_ite *ite);
-
 struct string_ite{
 	string_ite_next_func next;
 	bool yield;
 	const char *tokens;
+	char *base;
 	char *state;
+	size_t max;
 };
 
 // ------------------------------------------------------------ Constructors -------------------------------------------------------

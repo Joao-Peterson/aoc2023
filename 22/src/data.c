@@ -53,7 +53,7 @@ void list_push_unique(list_t *l, void *value, valueCmpFunction cmpFunc){
 	list_push(l, value);
 }
 
-void list_push_priority(list_t *l, void *value, valueCmpFunction cmpFunc){
+void list_priority_push(list_t *l, void *value, valueCmpFunction cmpFunc){
 	node_t *new = calloc(1, sizeof(node_t));
 	new->value = value;
 	

@@ -99,15 +99,11 @@ void string_print(const string *str){
 	printf("%.*s", (int)str->len, str->raw);
 }
 
-size_t string_length(const string* str){
-	return str->len;
-}
-
 // !trivial
 bool string_cmp_raw(const string *a, const char *b){
 	if(b == NULL) return false;
 	size_t max = strlen(b);
-	if(string_length(a) != max) return false;
+	if(a->len != max) return false;
 
 	for(size_t i = 0; i < max; i++){
 		if(a->raw[i] != b[i])
@@ -123,9 +119,10 @@ bool string_cmp(const string *a, const string *b){
 
 // !trivial
 void _string_cat_raw(string * restrict dest, const char * restrict src, size_t srclen){
-	if(src == NULL) return;
+	// no src or dest is string slice
+	if(src == NULL || (dest->allocated == 0 && dest->owns == false)) return;
 
-	size_t len = string_length(dest) + srclen;
+	size_t len = dest->len + srclen;
 	if(dest->allocated == 0){
 		dest->allocated = len + STRING_ALLOCATION_CHUNK;
 		dest->raw = calloc(dest->allocated, sizeof(char));
@@ -154,7 +151,7 @@ void string_cat_raw(string * restrict dest, const char * restrict src, size_t le
 }
 
 void string_cat(string * restrict dest, const string * restrict src, size_t len){
-	size_t l = string_length(src);
+	size_t l = src->len;
 	if(len > 0 && len <= l)
 		l = len;
 
@@ -220,9 +217,17 @@ string *string_from_filename(const char *filename, size_t *read){
 string string_ite_next(string_ite *iterator){
 	size_t start = strspn(iterator->state, iterator->tokens);
 	size_t end = strcspn(iterator->state + start, iterator->tokens);
-	if(end == 0){
+
+	// no more string
+	if(end == 0 || iterator->state + start >= iterator->base + iterator->max){
 		iterator->yield = false;
 		return (string){0};
+	}
+
+	// string ended
+	if(iterator->state + start + end > iterator->base + iterator->max){
+		// correct end to the base max
+		end = iterator->base + iterator->max - (iterator->state + start);
 	}
 	
 	string slice = (string){
@@ -237,13 +242,23 @@ string string_ite_next(string_ite *iterator){
 }
 
 string_ite string_split(const string *str, const char *tokens){
-	return (string_ite){.state = str->raw, .tokens = tokens, .next = string_ite_next, .yield = true};
+	return (string_ite){
+		.state = str->raw,
+		.base = str->raw,
+		.max = str->len,
+		.tokens = tokens,
+		.next = string_ite_next,
+		.yield = true
+	};
 }
 
 // !trivial
 string string_slice(const string *str, int from, unsigned int len){
+	// negative is from the end coming left
 	if(from < 0) from = str->len + from;
+	// 0 is all len remaining
 	if(len == 0) len = str->len - from;
+	// if bigger, just use all len
 	if((from + len) > str->len) len = str->len - from;
 
 	return (string){
@@ -295,6 +310,7 @@ typedef struct{
 	size_t matchesSize;
 }matches_and_replaced_t;
 
+// !trivial
 matches_and_replaced_t _string_match_replace_all(const string *str, const char *regex, const char *replace, size_t max, bool storeMatches, bool processReplace, error_t *err){
 	regex_t reg;
 	int res;
@@ -318,7 +334,7 @@ matches_and_replaced_t _string_match_replace_all(const string *str, const char *
 
 	// match again and again 
 	char *cursor = str->raw;
-	for(size_t m = 0; (max == 0 || m < max) && *cursor != '\0'; m++){
+	for(size_t m = 0; (max == 0 || m < max) && (cursor < (str->raw + str->len)); m++){
         if((res = regexec(&reg, cursor, 100, groups, 0))){
 			if(err != NULL){
 				err->code = res;
