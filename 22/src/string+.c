@@ -411,7 +411,7 @@ array_t *string_matchAll(const string *str, const char *regex, size_t maxMatches
 
 	array_t *ret = array_new_wconf(mr.matchesSize, true);
 	for(size_t i = 0; i < mr.matchesSize; i++)
-		array_set(ret, i, mr.matches[i]);
+		array_insert(ret, i, mr.matches[i]);
 
 	free(mr.matches);
 	return ret;

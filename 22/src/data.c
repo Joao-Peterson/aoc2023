@@ -1,6 +1,12 @@
 #include "data.h"
 #include "hash.h"
 
+node_t *node_clone(const node_t *node){
+	node_t *new = calloc(1, sizeof(node_t));
+	new->value = node->value;
+	return new;
+}
+
 // ------------------------------------------------------------ Linked list --------------------------------------------------------
 
 list_t *list_new(bool takeOwnership){
@@ -100,6 +106,22 @@ void list_priority_push(list_t *l, void *value, valueCmpFunction cmpFunc){
 	l->size++;
 }
 
+void list_append(list_t *dest, list_t *consumed){
+	if(consumed == NULL || consumed->first == NULL || dest->onws != consumed->onws) return;
+	if(dest->size == 0){
+		dest->first = consumed->first;
+		dest->last = consumed->last;
+	}
+	else{
+		consumed->first->prev = dest->last;
+		dest->last->next = consumed->first;
+		dest->last = consumed->last;
+	}
+
+	dest->size += consumed->size;
+	list_destroy(consumed);
+}
+
 void *list_queue_pop(list_t *l){
 	if(l == NULL || l->size == 0) return NULL;
 
@@ -142,6 +164,25 @@ void *list_stack_pop(list_t *l){
 	return ret;
 }
 
+void *list_next(list_ite *i){
+	if(i->state == NULL){
+		i->yield = false;
+		return NULL;
+	}
+
+	void *v = i->state->value;
+	i->state = i->state->next;
+	return v;
+}
+
+list_ite list_iterate(const list_t *l){
+	return (list_ite){
+		.next = list_next,
+		.yield = true,
+		.state = l->first
+	};
+}
+
 // ------------------------------------------------------------ Dynamic Array ------------------------------------------------------
 
 array_t *array_new(void){
@@ -175,7 +216,7 @@ void array_destroy(array_t *a){
 	free(a);
 }
 
-void array_set(array_t *a, size_t pos, void *value){
+void array_insert(array_t *a, size_t pos, void *value){
 	if(pos >= a->allocated){
 		a->raw = realloc(a->raw, pos + a->blockSize);
 		a->size = pos + 1;
@@ -191,7 +232,7 @@ void array_set(array_t *a, size_t pos, void *value){
 
 size_t array_add(array_t *a, void *value){
 	size_t pos = a->size;
-	array_set(a, pos, value);
+	array_insert(a, pos, value);
 	return pos;
 }
 
@@ -202,6 +243,13 @@ size_t array_len(const array_t *a){
 void *array_get(const array_t *a, size_t pos){
 	if(a == NULL || pos >= a->allocated) return NULL;
 	return a->raw[pos];
+}
+
+void *array_remove(array_t *a, size_t pos){
+	if(a == NULL || pos >= a->allocated) return NULL;
+	void *val = a->raw[pos];
+	a->raw[pos] = NULL;
+	return val;
 }
 
 // ------------------------------------------------------------ Queue --------------------------------------------------------------
