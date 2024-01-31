@@ -1,6 +1,12 @@
 #include "data.h"
 #include "hash.h"
 
+node_t *node_clone(const node_t *node){
+	node_t *new = calloc(1, sizeof(node_t));
+	new->value = node->value;
+	return new;
+}
+
 // ------------------------------------------------------------ Linked list --------------------------------------------------------
 
 list_t *list_new(bool takeOwnership){
@@ -53,7 +59,7 @@ void list_push_unique(list_t *l, void *value, valueCmpFunction cmpFunc){
 	list_push(l, value);
 }
 
-void list_push_priority(list_t *l, void *value, valueCmpFunction cmpFunc){
+void list_priority_push(list_t *l, void *value, valueCmpFunction cmpFunc){
 	node_t *new = calloc(1, sizeof(node_t));
 	new->value = value;
 	
@@ -100,6 +106,22 @@ void list_push_priority(list_t *l, void *value, valueCmpFunction cmpFunc){
 	l->size++;
 }
 
+void list_append(list_t *dest, list_t *consumed){
+	if(consumed == NULL || consumed->first == NULL || dest->onws != consumed->onws) return;
+	if(dest->size == 0){
+		dest->first = consumed->first;
+		dest->last = consumed->last;
+	}
+	else{
+		consumed->first->prev = dest->last;
+		dest->last->next = consumed->first;
+		dest->last = consumed->last;
+	}
+
+	dest->size += consumed->size;
+	list_destroy(consumed);
+}
+
 void *list_queue_pop(list_t *l){
 	if(l == NULL || l->size == 0) return NULL;
 
@@ -142,9 +164,26 @@ void *list_stack_pop(list_t *l){
 	return ret;
 }
 
-// ------------------------------------------------------------ Dynamic Array ------------------------------------------------------
+void *list_next(list_ite *i){
+	if(i->state == NULL){
+		i->yield = false;
+		return NULL;
+	}
 
-#define MIN_ARRAY_BLOCK_ALLOC 100
+	void *v = i->state->value;
+	i->state = i->state->next;
+	return v;
+}
+
+list_ite list_iterate(const list_t *l){
+	return (list_ite){
+		.next = list_next,
+		.yield = true,
+		.state = l->first
+	};
+}
+
+// ------------------------------------------------------------ Dynamic Array ------------------------------------------------------
 
 array_t *array_new(void){
 	array_t *a = calloc(1, sizeof(array_t));
@@ -177,7 +216,7 @@ void array_destroy(array_t *a){
 	free(a);
 }
 
-void array_set(array_t *a, size_t pos, void *value){
+void array_insert(array_t *a, size_t pos, void *value){
 	if(pos >= a->allocated){
 		a->raw = realloc(a->raw, pos + a->blockSize);
 		a->size = pos + 1;
@@ -193,7 +232,7 @@ void array_set(array_t *a, size_t pos, void *value){
 
 size_t array_add(array_t *a, void *value){
 	size_t pos = a->size;
-	array_set(a, pos, value);
+	array_insert(a, pos, value);
 	return pos;
 }
 
@@ -204,6 +243,13 @@ size_t array_len(const array_t *a){
 void *array_get(const array_t *a, size_t pos){
 	if(a == NULL || pos >= a->allocated) return NULL;
 	return a->raw[pos];
+}
+
+void *array_remove(array_t *a, size_t pos){
+	if(a == NULL || pos >= a->allocated) return NULL;
+	void *val = a->raw[pos];
+	a->raw[pos] = NULL;
+	return val;
 }
 
 // ------------------------------------------------------------ Queue --------------------------------------------------------------
@@ -500,158 +546,4 @@ bool set_exists(set_t *set, void *value, size_t size){
 	}
 
 	return false;
-}
-
-// ------------------------------------------------------------ Matrix -------------------------------------------------------------
-
-matrix_t *matrix_new(size_t w, size_t h, int init){
-	if(!w && !h) return NULL;
-
-	matrix_t *m = malloc(sizeof(matrix_t));
-	m->w = w;
-	m->h = h;
-	m->rows = malloc(sizeof(int*) * h);
-	
-	for(size_t i = 0; i < h; i++){
-		m->rows[i] = malloc(sizeof(int) * w);
-		for(size_t j = 0; j < w; j++){
-			m->rows[i][j] = init;
-		}
-	}
-
-	return m;
-}
-
-matrix_t *matrix_from_string(const string *lines){
-	string_ite_t ite = string_split(lines, "\n");
-
-	size_t h = 1;
-	for(char *i = lines->raw; *i != '\0'; i++){
-		if(*i == '\n')
-			h++;
-	}
-
-	matrix_t *m = malloc(sizeof(matrix_t));
-	m->rows = malloc(sizeof(int*) * h);
-
-	size_t l = 0;
-	for(string *line = string_next(&ite); line != NULL; line = string_next(&ite)){
-		if(l == 0)
-			m->w = line->len;
-
-		m->rows[l] = malloc(sizeof(int) * m->w);
-		for(size_t c = 0; c < m->w; c++)
-			m->rows[l][c] = line->raw[c];
-		
-		l++;
-		string_destroy(line);
-	}
-
-	m->h = l;
-
-	return m;
-}
-
-matrix_t *matrix_from_file(FILE *file, size_t *read){
-	string *f = string_from_file(file, read);
-	if(f == NULL) return NULL;
-
-	matrix_t *m = matrix_from_string(f);
-	string_destroy(f);
-	return m;
-}
-
-matrix_t *matrix_from_filename(const char *filename, size_t *read){
-	string *f = string_from_filename(filename, read);
-	if(f == NULL) return NULL;
-
-	matrix_t *m = matrix_from_string(f);
-	string_destroy(f);
-	return m;
-}
-
-matrix_t *matrix_copy(const matrix_t *m){
-	matrix_t *new = matrix_new(m->w, m->h, 0);
-
-	for(size_t i = 0; i < m->h; i++)
-		memcpy(new->rows[i], m->rows[i], m->w * sizeof(int));
-
-	return new;
-}
-
-void matrix_destroy(matrix_t *m){
-	for(size_t i = 0; i < m->h; i++)
-		free(m->rows[i]);
-
-	free(m->rows);
-	free(m);
-}
-
-string *matrix_print_char(const matrix_t *m, char colSep, char rowSep){
-	// 5 is average len of the string representantion of INT32_MAX
-	// + m->h * m->w * 5 for numbers
-	// + m->h * m->w for commas
-	// + m->h for line endings
-	string *s = string_new_sized(m->h * m->w * 5 + m->w * m->h + m->h);
-	for(size_t i = 0; i < m->h; i++){
-		for(size_t j = 0; j < m->w; j++){
-			if(j > 0 && colSep)
-				string_write(s, "%c", 2, colSep);
-
-			string_write(s, "%c", 2, (char)m->rows[i][j]);
-		}
-
-		if(rowSep)
-		string_write(s, "%c", 2, rowSep);
-	}
-	return s;
-}
-
-string *matrix_print_int(const matrix_t *m, int intWidth, char colSep, char rowSep){
-	// 5 is average len of the string representantion of INT32_MAX
-	// + m->h * m->w * 5 for numbers
-	// + m->h * m->w for commas
-	// + m->h for line endings
-	int max = 1;
-	for(int w = 0; w < intWidth; w++)
-		max *= 10;
-
-	// increment to always have one more with to compensate the extra space of 'printf("% *d")' 
-	intWidth++;
-	
-	string *s = string_new_sized(m->h * m->w * 5 + m->w * m->h + m->h);
-	for(size_t i = 0; i < m->h; i++){
-		for(size_t j = 0; j < m->w; j++){
-			if(j > 0 && colSep)
-				string_write(s, "%c", 2, colSep);
-
-			if(intWidth){
-				int toPrint = 0;
-				if(m->rows[i][j] < 0)
-					// for negative numbers its the opposite
-					toPrint = m->rows[i][j] <= -max ? -max + 1 : m->rows[i][j];
-				else
-					// if has width, print min of n digits of the number, which if bigger than the maximum of digits, will be truncated as max - 1
-					// So width 3 is a max of 1000, the number 5000 is >= 1000 so it will be 1000 - 1 = 999
-					toPrint = m->rows[i][j] >= max ? max - 1 : m->rows[i][j];
-					
-				string_write(s, "% *d", 15, intWidth, toPrint);
-			}
-			else{
-				string_write(s, "% d", 15, m->rows[i][j]);
-			}
-		}
-
-		if(rowSep)
-		string_write(s, "%c", 2, rowSep);
-	}
-	return s;
-}
-
-string *matrix_print_csv(const matrix_t *m){
-	return matrix_print_int(m, 0, ',', '\n');
-}
-
-string *matrix_print_trunc(const matrix_t *m, unsigned int truncate){
-	return matrix_print_int(m, truncate, ' ', '\n');
 }

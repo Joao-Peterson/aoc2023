@@ -11,6 +11,7 @@
 #include "src/number.h"
 #include "src/hash.h"
 #include "src/data.h"
+#include "src/ite.h"
 
 typedef struct{
 	
@@ -20,13 +21,11 @@ typedef struct{
 puzzle_t *parseInput(const string *data){
 	puzzle_t *p = malloc(sizeof(puzzle_t));
 
-	string_ite_t iterator = string_split(data, "\n");
+	string_ite ite = string_split(data, "\n");
 	size_t l = 0;
-	for(string *line = string_next(&iterator); line != NULL; line = string_next(&iterator)){
-
+	foreach(string, line, ite){
 		
 		l++;
-		string_destroy(line);
 	}
 	
 	return p;
@@ -43,14 +42,10 @@ uint64_t part2(puzzle_t *p){
 int main(int argc, char**argv){
 	string *data;
 	
-	// from arg filename
-	if(argc > 1){
-		data = string_from_filename(argv[1], NULL);
-	}
-	// from pipe
-	else{
-		data = string_from_file(stdin, NULL);
-	}
+	if(argc > 1)
+		data = string_from_filename(argv[1], NULL);	// from arg filename
+	else
+		data = string_from_file(stdin, NULL);      	// from pipe
 
 	puzzle_t *p = parseInput(data);
 	

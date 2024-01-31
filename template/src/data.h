@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include "string+.h"
 
 // ------------------------------------------------------------ Types --------------------------------------------------------------
 
@@ -46,6 +45,14 @@ typedef struct{
 	size_t size;
 }list_t;
 
+typedef struct list_ite list_ite;
+typedef void* (*list_ite_next_func)(list_ite *ite);
+struct list_ite{
+	list_ite_next_func next;
+	bool yield;
+	node_t *state;
+};
+
 list_t *list_new(bool takeOwnership);
 
 void list_destroy(list_t *l);
@@ -54,13 +61,23 @@ void list_push(list_t *l, void *value);
 
 void list_push_unique(list_t *l, void *value, valueCmpFunction cmpFunc);
 
-void list_push_priority(list_t *l, void *value, valueCmpFunction cmpFunc);
+void list_priority_push(list_t *l, void *value, valueCmpFunction cmpFunc);
+
+/**
+ * @brief appends two lists, both must different and must have same memory owning of their data.
+ * If one owns and the other doesn't, then the function returns immediately
+*/
+void list_append(list_t *dest, list_t *consumed);
 
 void *list_queue_pop(list_t *l);
 
 void *list_stack_pop(list_t *l);
 
+list_ite list_iterate(const list_t *l);
+
 // ------------------------------------------------------------ Dynamic Array ------------------------------------------------------
+
+#define MIN_ARRAY_BLOCK_ALLOC 100
 
 typedef struct{
 	void **raw;
@@ -76,13 +93,15 @@ array_t *array_new_wconf(size_t blockAllocSize, bool takeOwnership);
 
 void array_destroy(array_t *a);
 
-void array_set(array_t *a, size_t pos, void *value);
+void array_insert(array_t *a, size_t pos, void *value);
 
 size_t array_add(array_t *a, void *value);
 
 size_t array_len(const array_t *a);
 
 void *array_get(const array_t *a, size_t pos);
+
+void *array_remove(array_t *a, size_t pos);
 
 // ------------------------------------------------------------ Queue --------------------------------------------------------------
 
@@ -166,33 +185,5 @@ int set_add(set_t *set, void *value, size_t size);
 node_t *set_get(set_t *set, size_t pos);
 
 bool set_exists(set_t *set, void *value, size_t size);
-
-// ------------------------------------------------------------ Matrix -------------------------------------------------------------
-
-typedef struct{
-	size_t w;
-	size_t h;
-	int **rows;
-}matrix_t;
-
-matrix_t *matrix_new(size_t w, size_t h, int init);
-
-matrix_t *matrix_from_string(const string *lines);
-
-matrix_t *matrix_from_file(FILE *file, size_t *read);
-
-matrix_t *matrix_from_filename(const char *filename, size_t *read);
-
-matrix_t *matrix_copy(const matrix_t *m);
-
-void matrix_destroy(matrix_t *m);
-
-string *matrix_print_char(const matrix_t *m, char colSep, char rowSep);
-
-string *matrix_print_int(const matrix_t *m, int intWidth, char colSep, char rowSep);
-
-string *matrix_print_csv(const matrix_t *m);
-
-string *matrix_print_trunc(const matrix_t *m, unsigned int truncate);
 
 #endif

@@ -409,9 +409,9 @@ string *string_replace(const string *str, const char *regex, const char *replace
 array_t *string_matchAll(const string *str, const char *regex, size_t maxMatches, error_t *error){
 	matches_and_replaced_t mr = _string_match_replace_all(str, regex, NULL, maxMatches, true, false, error);
 
-	array_t *ret = array_new_wconf(mr.matchesSize, true);
+	array_t *ret = array_new_custom(true, mr.matchesSize);
 	for(size_t i = 0; i < mr.matchesSize; i++)
-		array_insert(ret, i, mr.matches[i]);
+		array_set(ret, i, mr.matches[i]);
 
 	free(mr.matches);
 	return ret;
