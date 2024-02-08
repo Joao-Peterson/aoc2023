@@ -21,6 +21,11 @@ typedef struct{
 }edge_t;
 
 typedef struct{
+	point_t p;
+	int d;
+}travel_point_t;
+
+typedef struct{
 	matrix_t *map;
 	point_t start;
 	point_t end;
@@ -69,59 +74,58 @@ puzzle_t *parseInput(const string *data){
 	return p;
 }
 
-int64_t dfs(const puzzle_t *p, point_t point, edge_t *graph, matrix_t *seen){
+int dict_set_point(dict_t *d, int y, int x){
+	point_t p = (point_t){.y = y, .x = x};
+	return dict_add_bin(d, &p, sizeof(point_t), (void*)1);
+}
+
+void dict_unset_point(dict_t *d, int y, int x){
+	point_t p = (point_t){.y = y, .x = x};
+	dict_remove_bin(d, &p, sizeof(point_t));
+}
+
+bool dict_check_point(const dict_t *d, int y, int x){
+	point_t p = (point_t){.y = y, .x = x};
+	return dict_exists_bin(d, &p, sizeof(point_t));
+}
+
+int64_t dfs(const puzzle_t *p, point_t point, dict_t *graph, dict_t *seen){
 	if(point.y == p->end.y && point.x == p->end.x)
 		return 0;
 
 	int64_t d = -1;
 
-	edge_t edge = graph[matrix_index_p(p->map, point)];
-	seen->rows[point.y][point.x] = true;
-	for(int i = 0; i < edge.pointsSize; i++){
-		if(seen->rows[edge.points[i].y][edge.points[i].x]) continue;
+	list_t *l = dict_get_bin(graph, &point, sizeof(point_t));
+	list_ite li = list_iterate(l);
+	dict_set_point(seen, point.y, point.x);
+	foreach(travel_point_t *, tp, li){
+		if(dict_check_point(seen, tp->p.y, tp->p.x)) continue;
 
-		int64_t dd = dfs(p, edge.points[i], graph, seen);
+		int64_t dd = dfs(p, tp->p, graph, seen);
 		if(dd > -1){
-			dd += edge.pointDistance[i];
+			dd += tp->d;
 			if(dd > d) d = dd;
 		}
 	}
-	seen->rows[point.y][point.x] = false;
+	dict_unset_point(seen, point.y, point.x);
 
 	return d;
 }
 
-int dict_set_point(dict_t *d, int y, int x){
-	point_t p = (point_t){.y = y, .x = x};
-	return dict_set_bin(d, &p, sizeof(point_t), (void*)1);
-}
-
-bool dict_check_point(dict_t *d, int y, int x){
-	point_t p = (point_t){.y = y, .x = x};
-	return dict_exists_bin(d, &p, sizeof(point_t));
-}
-
 uint64_t part1(const puzzle_t *p){	
-	edge_t *graph = calloc(141*141, sizeof(edge_t));
-
-	typedef struct{
-		point_t p;
-		int d;
-	}travel_point_t;
+	dict_t *graph = dict_new(100);
 
 	list_ite ite = list_iterate(p->points);
 	// for every vertix on intersections, count distance to other edges
 	foreach(point_t*, point, ite){
 
 		list_t *stack = list_new_custom_stack(false, pointCmp);
-		matrix_t *seen = matrix_new(141, 141, 0);
-		dict_t *seenDict = dict_new(141);
+		dict_t *seen = dict_new(141);
 
 		// starting point
 		travel_point_t *init = malloc(sizeof(travel_point_t));
 		*init = (travel_point_t){.p = *point, .d = 0};
-		seen->rows[point->y][point->x] = true;
-		dict_set_point(seenDict, point->y, point->x);
+		dict_set_point(seen, point->y, point->x);
 		list_push(stack, init);
 
 		// navigate through path 
@@ -129,11 +133,13 @@ uint64_t part1(const puzzle_t *p){
 		foreach(travel_point_t*, t, pops){
 			// if reached an intersection vertix
 			if(t->d > 0 && list_exists(p->points, &(t->p))){
-				edge_t *edge = &(graph[matrix_index_p(p->map, *point)]);
-				edge->points[edge->pointsSize] = t->p;
-				edge->pointDistance[edge->pointsSize] = t->d;
-				edge->pointsSize++;
-				free(t);
+				if(!dict_exists_bin(graph, point, sizeof(point_t))){
+					list_t *points = list_new_custom_queue(true, NULL);
+					dict_add_bin(graph, point, sizeof(point_t), points);
+				}
+
+				list_t *points = dict_get_bin(graph, point, sizeof(point_t));
+				list_push(points, t);
 				continue;
 			}
 
@@ -142,10 +148,8 @@ uint64_t part1(const puzzle_t *p){
 			if(p->map->rows[t->p.y][t->p.x] == '>' || p->map->rows[t->p.y][t->p.x] == '.'){
 				ny = t->p.y;
 				nx = t->p.x + 1;
-				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !seen->rows[ny][nx]){
-					printf("seenDict check [%d][%d]: '%s'\n", ny, nx, seen->rows[ny][nx] == dict_check_point(seenDict, ny, nx) ? "true" : "false");
-					seen->rows[ny][nx] = true;
-					dict_set_point(seenDict, ny, nx);
+				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !dict_check_point(seen, ny, nx)){
+					dict_set_point(seen, ny, nx);
 					travel_point_t *nt = malloc(sizeof(travel_point_t));
 					*nt = (travel_point_t){.p = (point_t){.y = ny, .x = nx}, .d = t->d + 1};
 					list_push(stack, nt);
@@ -155,10 +159,8 @@ uint64_t part1(const puzzle_t *p){
 			if(p->map->rows[t->p.y][t->p.x] == '<' || p->map->rows[t->p.y][t->p.x] == '.'){
 				ny = t->p.y;
 				nx = t->p.x - 1;
-				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !seen->rows[ny][nx]){
-					printf("seenDict check [%d][%d]: '%s'\n", ny, nx, seen->rows[ny][nx] == dict_check_point(seenDict, ny, nx) ? "true" : "false");
-					seen->rows[ny][nx] = true;
-					dict_set_point(seenDict, ny, nx);
+				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !dict_check_point(seen, ny, nx)){
+					dict_set_point(seen, ny, nx);
 					travel_point_t *nt = malloc(sizeof(travel_point_t));
 					*nt = (travel_point_t){.p = (point_t){.y = ny, .x = nx}, .d = t->d + 1};
 					list_push(stack, nt);
@@ -168,10 +170,8 @@ uint64_t part1(const puzzle_t *p){
 			if(p->map->rows[t->p.y][t->p.x] == 'v' || p->map->rows[t->p.y][t->p.x] == '.'){
 				ny = t->p.y + 1;
 				nx = t->p.x;
-				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !seen->rows[ny][nx]){
-					printf("seenDict check [%d][%d]: '%s'\n", ny, nx, seen->rows[ny][nx] == dict_check_point(seenDict, ny, nx) ? "true" : "false");
-					seen->rows[ny][nx] = true;
-					dict_set_point(seenDict, ny, nx);
+				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !dict_check_point(seen, ny, nx)){
+					dict_set_point(seen, ny, nx);
 					travel_point_t *nt = malloc(sizeof(travel_point_t));
 					*nt = (travel_point_t){.p = (point_t){.y = ny, .x = nx}, .d = t->d + 1};
 					list_push(stack, nt);
@@ -181,10 +181,8 @@ uint64_t part1(const puzzle_t *p){
 			if(p->map->rows[t->p.y][t->p.x] == '^' || p->map->rows[t->p.y][t->p.x] == '.'){
 				ny = t->p.y - 1;
 				nx = t->p.x;
-				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !seen->rows[ny][nx]){
-					printf("seenDict check [%d][%d]: '%s'\n", ny, nx, seen->rows[ny][nx] == dict_check_point(seenDict, ny, nx) ? "true" : "false");
-					seen->rows[ny][nx] = true;
-					dict_set_point(seenDict, ny, nx);
+				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !dict_check_point(seen, ny, nx)){
+					dict_set_point(seen, ny, nx);
 					travel_point_t *nt = malloc(sizeof(travel_point_t));
 					*nt = (travel_point_t){.p = (point_t){.y = ny, .x = nx}, .d = t->d + 1};
 					list_push(stack, nt);
@@ -195,49 +193,50 @@ uint64_t part1(const puzzle_t *p){
 		}
 
 		list_destroy(stack);
-		matrix_destroy(seen);
-		dict_destroy(seenDict);
+		dict_destroy(seen);
 	}
 
-	// print graph
-	// ite = list_iterate(p->points);
-	// foreach(point_t*, point, ite){
-	// 	edge_t edge = graph[matrix_index_p(p->map, *point)];
-	// 	printf("(%d,%d): ", (int)point->y, (int)point->x);
-	// 	for(size_t i = 0; i < edge.pointsSize; i++){
-	// 		if(i > 0)
-	// 			printf(", ");
+	// printf("Dictionary graph: \n");
+	// dict_ite dt = dict_iterate(graph);
+	// foreach(key_value_t, kv, dt){
+	// 	const point_t *from = kv.key;
+	// 	const list_t *l = kv.value;
 
-	// 		printf("{(%d,%d): %d}", (int)edge.points[i].y, (int)edge.points[i].x, edge.pointDistance[i]);
+	// 	printf("(%d,%d): ", (int)from->y, (int)from->x);
+
+	// 	list_ite li = list_iterate(l);
+	// 	int i = 0;
+	// 	foreach(travel_point_t *, tp, li){
+	// 		if(i > 0 )
+	// 			printf(", ");
+	// 		printf("{(%d,%d): %d}", (int)tp->p.y, (int)tp->p.x, tp->d);
+
+	// 		i++;
 	// 	}
 	// 	printf("\n");
 	// }
 
-	matrix_t *seen = matrix_new(141, 141, 0);
-	int64_t res = dfs(p, p->start, graph, seen);
-	free(graph);
+	dict_t *seenDfs = dict_new(141);
+	int64_t res = dfs(p, p->start, graph, seenDfs);
+	dict_destroy(seenDfs);
+	dict_destroy(graph);
 	return res;
 }
 
 uint64_t part2(const puzzle_t *p){	
-	edge_t *graph = calloc(141*141, sizeof(edge_t));
-
-	typedef struct{
-		point_t p;
-		int d;
-	}travel_point_t;
+	dict_t *graph = dict_new(100);
 
 	list_ite ite = list_iterate(p->points);
 	// for every vertix on intersections, count distance to other edges
 	foreach(point_t*, point, ite){
 
 		list_t *stack = list_new_custom_stack(false, pointCmp);
-		matrix_t *seen = matrix_new(141, 141, 0);
+		dict_t *seen = dict_new(141);
 
 		// starting point
 		travel_point_t *init = malloc(sizeof(travel_point_t));
 		*init = (travel_point_t){.p = *point, .d = 0};
-		seen->rows[point->y][point->x] = true;
+		dict_set_point(seen, point->y, point->x);
 		list_push(stack, init);
 
 		// navigate through path 
@@ -245,11 +244,13 @@ uint64_t part2(const puzzle_t *p){
 		foreach(travel_point_t*, t, pops){
 			// if reached an intersection vertix
 			if(t->d > 0 && list_exists(p->points, &(t->p))){
-				edge_t *edge = &(graph[matrix_index_p(p->map, *point)]);
-				edge->points[edge->pointsSize] = t->p;
-				edge->pointDistance[edge->pointsSize] = t->d;
-				edge->pointsSize++;
-				free(t);
+				if(!dict_exists_bin(graph, point, sizeof(point_t))){
+					list_t *points = list_new_custom_queue(true, NULL);
+					dict_add_bin(graph, point, sizeof(point_t), points);
+				}
+
+				list_t *points = dict_get_bin(graph, point, sizeof(point_t));
+				list_push(points, t);
 				continue;
 			}
 
@@ -259,8 +260,8 @@ uint64_t part2(const puzzle_t *p){
 				// step right
 				ny = t->p.y;
 				nx = t->p.x + 1;
-				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !seen->rows[ny][nx]){
-					seen->rows[ny][nx] = true;
+				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !dict_check_point(seen, ny, nx)){
+					dict_set_point(seen, ny, nx);
 					travel_point_t *nt = malloc(sizeof(travel_point_t));
 					*nt = (travel_point_t){.p = (point_t){.y = ny, .x = nx}, .d = t->d + 1};
 					list_push(stack, nt);
@@ -268,8 +269,8 @@ uint64_t part2(const puzzle_t *p){
 				// step left
 				ny = t->p.y;
 				nx = t->p.x - 1;
-				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !seen->rows[ny][nx]){
-					seen->rows[ny][nx] = true;
+				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !dict_check_point(seen, ny, nx)){
+					dict_set_point(seen, ny, nx);
 					travel_point_t *nt = malloc(sizeof(travel_point_t));
 					*nt = (travel_point_t){.p = (point_t){.y = ny, .x = nx}, .d = t->d + 1};
 					list_push(stack, nt);
@@ -277,8 +278,8 @@ uint64_t part2(const puzzle_t *p){
 				// step down
 				ny = t->p.y + 1;
 				nx = t->p.x;
-				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !seen->rows[ny][nx]){
-					seen->rows[ny][nx] = true;
+				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !dict_check_point(seen, ny, nx)){
+					dict_set_point(seen, ny, nx);
 					travel_point_t *nt = malloc(sizeof(travel_point_t));
 					*nt = (travel_point_t){.p = (point_t){.y = ny, .x = nx}, .d = t->d + 1};
 					list_push(stack, nt);
@@ -286,24 +287,25 @@ uint64_t part2(const puzzle_t *p){
 				// step up
 				ny = t->p.y - 1;
 				nx = t->p.x;
-				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !seen->rows[ny][nx]){
-					seen->rows[ny][nx] = true;
+				if(matrix_inside(p->map, ny, nx) && p->map->rows[ny][nx] != '#' && !dict_check_point(seen, ny, nx)){
+					dict_set_point(seen, ny, nx);
 					travel_point_t *nt = malloc(sizeof(travel_point_t));
 					*nt = (travel_point_t){.p = (point_t){.y = ny, .x = nx}, .d = t->d + 1};
 					list_push(stack, nt);
 				}
 			}
-	
+			
 			free(t);
 		}
 
 		list_destroy(stack);
-		matrix_destroy(seen);
+		dict_destroy(seen);
 	}
 
-	matrix_t *seen = matrix_new(141, 141, 0);
-	int64_t res = dfs(p, p->start, graph, seen);
-	free(graph);
+	dict_t *seenDfs = dict_new(141);
+	int64_t res = dfs(p, p->start, graph, seenDfs);
+	dict_destroy(seenDfs);
+	dict_destroy(graph);
 	return res;
 }
 

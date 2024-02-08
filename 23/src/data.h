@@ -15,6 +15,12 @@ struct node_t{
 	node_t *prev;
 };
 
+typedef struct{
+	void *key;
+	void* value;
+	size_t keySize;
+}key_value_t;
+
 typedef enum{
 	cmp_reject = 0,
 	cmp_accept = 1,
@@ -189,6 +195,11 @@ array_t *array_new(void);
 void array_destroy(array_t *a);
 
 /**
+ * @brief get array size
+*/
+size_t array_size(const array_t *a);
+
+/**
  * @brief sets the value on the array at the position.
  * If the position is already has a value then it's overwritten.
  * If overwritten and the array has ownership, then the old value is deallocated.
@@ -219,9 +230,10 @@ void *array_get(const array_t *a, size_t pos);
 void *array_remove(array_t *a, size_t pos);
 
 /**
- * @brief get array size
+ * @brief removes and returns a value at the position while rearranging the array as not to leave an empty space
+ * @attention O(n)
 */
-size_t array_size(const array_t *a);
+void *array_pop(array_t *a, size_t pos);
 
 // ------------------------------------------------------------ Hash table ---------------------------------------------------------
 
@@ -322,21 +334,24 @@ bool hashtable_exists_bin(hashtable_t *h, void *key, size_t keySize);
 
 // ------------------------------------------------------------ Dictionary ---------------------------------------------------------
 
+/**
+ * @brief a dict is an 'array_t' that holds 'key_value_t*' inside it, and a 'hashtable_t' to map 'void*' keys to positions, of type 'size_t*', on the array 
+*/
 typedef struct{
-	hashtable_t *table;
 	array_t *array;
+	hashtable_t *table;
 }dict_t;
 
 /**
  * @brief creates a new dictionary with specified pre allocated size.
  * Values in the dictionary are NOT freed when 'dict_destroy' is called
- * @param size: pre allocated size. The underlying hashtable will have '2*size'
+ * @param size: pre allocated size. The underlying hashtable will have the same size
 */
 dict_t *dict_new(size_t size);
 
 /**
  * @brief creates a new dictionary with specified prea allocated size.
- * @param size: pre allocated size. The underlying hashtable will have '2*size'
+ * @param size: pre allocated size. The underlying hashtable will have the same size
  * @param takeOwnership: true if inserted values should be freed along with the dictionary deallocation 
 */
 dict_t *dict_new_custom(size_t size, bool takeOwnership);
@@ -347,18 +362,20 @@ dict_t *dict_new_custom(size_t size, bool takeOwnership);
 void dict_destroy(dict_t *d);
 
 
-int64_t dict_set(dict_t *d, char *key, void *value);
+int64_t dict_add(dict_t *d, char *key, void *value);
 
-int64_t dict_set_bin(dict_t *d, void *key, size_t keySize, void *value);
+int64_t dict_add_bin(dict_t *d, void *key, size_t keySize, void *value);
 
-int64_t dict_set_at(dict_t *d, size_t pos, void *value);
+int64_t dict_set(dict_t *d, size_t pos, char *key, void *value);
+
+int64_t dict_set_bin(dict_t *d, size_t pos, void *key, size_t keySize, void *value);
 
 
-void *dict_get(dict_t *d, char *key);
+void *dict_get(const dict_t *d, char *key);
 
-void *dict_get_bin(dict_t *d, void *key, size_t keySize);
+void *dict_get_bin(const dict_t *d, void *key, size_t keySize);
 
-void *dict_get_at(dict_t *d, size_t pos);
+void *dict_get_at(const dict_t *d, size_t pos);
 
 
 void *dict_remove(dict_t *d, char *key);
@@ -368,19 +385,19 @@ void *dict_remove_bin(dict_t *d, void *key, size_t keySize);
 void *dict_remove_at(dict_t *d, size_t pos);
 
 
-bool dict_exists(dict_t *d, char *key);
+bool dict_exists(const dict_t *d, char *key);
 
-bool dict_exists_bin(dict_t *d, void *key, size_t keySize);
+bool dict_exists_bin(const dict_t *d, void *key, size_t keySize);
 
-bool dict_exists_at(dict_t *d, size_t pos);
+bool dict_exists_at(const dict_t *d, size_t pos);
 
 
-int64_t dict_pos_of(dict_t *d, char *key);
+int64_t dict_pos_of(const dict_t *d, char *key);
 
-int64_t dict_pos_of_bin(dict_t *d, void *key, size_t keySize);
+int64_t dict_pos_of_bin(const dict_t *d, void *key, size_t keySize);
 
 typedef struct dict_ite dict_ite;
-typedef void* (*dict_ite_next_func)(dict_ite *ite);
+typedef key_value_t (*dict_ite_next_func)(dict_ite *ite);
 struct dict_ite{
 	dict_ite_next_func next;
 	bool yield;

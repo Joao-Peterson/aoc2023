@@ -298,19 +298,35 @@ size_t array_add(array_t *a, void *value){
 }
 
 // !trivial
-void *array_get_raw(array_t *a, size_t pos, bool remove){
+void *array_get_raw(array_t *a, size_t pos, bool remove, bool rearrange){
 	if(a == NULL || pos >= a->allocated) return NULL;
 	void *val = a->raw[pos];
-	if(remove) a->raw[pos] = NULL;
+	if(remove){
+		a->raw[pos] = NULL;
+
+		if(rearrange && a->size > 0){
+			a->size -= 1;
+			size_t i = pos;
+			while(pos < a->size){
+				a->raw[i] = a->raw[i+1];
+				i++;
+			}
+		}
+	} 
+
 	return val;
 }
 
 void *array_get(const array_t *a, size_t pos){
-	return array_get_raw((array_t*)a, pos, false);
+	return array_get_raw((array_t*)a, pos, false, false);
 }
 
 void *array_remove(array_t *a, size_t pos){
-	return array_get_raw(a, pos, true);
+	return array_get_raw(a, pos, true, false);
+}
+
+void *array_pop(array_t *a, size_t pos){
+	return array_get_raw(a, pos, true, true);
 }
 
 size_t array_size(const array_t *a){
@@ -402,30 +418,18 @@ uint32_t hashtable_set(hashtable_t *h, char *key, void *value){
 }
 
 // !trivial
-void *hashtable_get_by_hash(hashtable_t *h, uint32_t hash, const void *key, size_t keySize, bool remove){
+kv_node_t *hashtable_get_by_hash(hashtable_t *h, uint32_t hash, const void *key, size_t keySize, bool remove){
 	kv_node_t *node = h->values[hash];
-
-	void *value = NULL;
 
 	while(node != NULL){
 		if(node->keySize == keySize && !memcmp(node->key, key, keySize)){
-			value = node->value;
-
 			if(remove){
-				// first
-				if(node == h->values[hash]){
-					node->next->prev = NULL;
-					h->values[hash] = node->next;
-				}
-				// between
-				else{
+				if(node->prev != NULL)
 					node->prev->next = node->next;
-					if(node->next != NULL)
-						node->next->prev = node->prev;
-				}
-
-				free(node->key);
-				free(node);
+				if(node->next != NULL)
+					node->next->prev = node->prev;
+				if(node == h->values[hash])
+					h->values[hash] = node->next;
 			}
 
 			break;			
@@ -433,12 +437,21 @@ void *hashtable_get_by_hash(hashtable_t *h, uint32_t hash, const void *key, size
 		node = node->next;
 	}
 
-	return value;
+	return node;
 }
 
 void *hashtable_get_raw(hashtable_t *h, void *key, size_t keySize, bool remove){
 	uint32_t hash = h->hash(key, keySize, h->size);
-	return hashtable_get_by_hash(h, hash, key, keySize, remove);
+	kv_node_t *kv = hashtable_get_by_hash(h, hash, key, keySize, remove);
+
+	void *value = kv->value;
+
+	if(remove){
+		free(kv->key);
+		free(kv);
+	}
+
+	return value;
 }
 
 void *hashtable_remove_bin(hashtable_t *h, void *key, size_t keySize){
@@ -467,19 +480,10 @@ bool hashtable_exists(hashtable_t *h, char *key){
 
 // ------------------------------------------------------------ Dictionary ---------------------------------------------------------
 
-typedef struct{
-	void *value;
-	size_t array_pos;
-}hash_entry_t;
-
-typedef struct{
-	uint32_t hash;
-}array_entry_t;
-
 // !trivial
 dict_t *dict_new_custom(size_t size, bool takeOwnership){
 	dict_t *d = malloc(sizeof(dict_t));
-	d->table = hashtable_new_custom(2*size, takeOwnership, NULL);
+	d->table = hashtable_new_custom(size, takeOwnership, NULL);
 	d->array = array_new_custom(true, size);
 	return d;
 }
@@ -496,51 +500,41 @@ void dict_destroy(dict_t *d){
 }
 
 // !trivial
-int64_t dict_set_bin(dict_t *d, void *key, size_t keySize, void *value){
+int64_t dict_set_bin(dict_t *d, size_t pos, void *key, size_t keySize, void *value){
+	if(pos >= d->array->size) return -1;
+	
 	uint32_t hash = d->table->hash(key, keySize, d->table->size);
 
 	// if not exists
 	if(hashtable_get_by_hash(d->table, hash, key, keySize, false) != NULL) return -1;
 
-	// add to array
-	array_entry_t *a = malloc(sizeof(hash_entry_t));
-	a->hash = hash;
-	size_t pos = array_add(d->array, a);
-
-	// add to hashtable
-	hash_entry_t *h = malloc(sizeof(hash_entry_t));
-	h->value = value;
-	h->array_pos = pos;
-	hashtable_set_by_hash(d->table, hash, key, keySize, h);
-
-	return (int64_t)pos;
-}
-
-// !trivial
-int64_t dict_set_at(dict_t *d, size_t pos, void *value){
-	if(array_get(d->array, pos) != NULL) return -1;
-	
-	// hash
-	size_t *p = malloc(sizeof(size_t));
-	*p = pos;
-	uint32_t hash = d->table->hash((void*)p, sizeof(size_t), d->table->size);
-	
-	// add to array
-	array_entry_t *a = malloc(sizeof(array_entry_t));
-	a->hash = hash;
+	// array
+	key_value_t *a = malloc(sizeof(key_value_t));
+	a->value = value;
+	a->key = malloc(keySize);
+	memcpy(a->key, key, keySize);
+	a->keySize = keySize;
 	array_set(d->array, pos, a);
 
-	// add to hashtable
-	hash_entry_t *h = malloc(sizeof(hash_entry_t));
-	h->array_pos = pos;
-	h->value = value;
-	hashtable_set_by_hash(d->table, hash, p, sizeof(size_t), h);
+	// hashtable
+	size_t *s = malloc(sizeof(size_t));
+	*s = pos;
+	hashtable_set_by_hash(d->table, hash, key, keySize, s);
 
 	return (int64_t)pos;
 }
 
-int64_t dict_set(dict_t *d, char *key, void *value){
-	return dict_set_bin(d, key, strlen(key), value);
+int64_t dict_set(dict_t *d, size_t pos, char *key, void *value){
+	return dict_set_bin(d, pos, key, strlen(key), value);
+}
+
+int64_t dict_add_bin(dict_t *d, void *key, size_t keySize, void *value){
+	d->array->size++;
+	return dict_set_bin(d, d->array->size - 1, key, keySize, value);
+}
+
+int64_t dict_add(dict_t *d, char *key, void *value){
+	return dict_add_bin(d, key, strlen(key), value);
 }
 
 // !trivial
@@ -548,35 +542,54 @@ void *dict_get_bin_raw(dict_t *d, void *key, size_t keySize, bool remove){
 	uint32_t hash = d->table->hash(key, keySize, d->table->size);
 
 	// get table entry
-	hash_entry_t *h = hashtable_get_by_hash(d->table, hash, key, keySize, remove);
+	kv_node_t *kv = hashtable_get_by_hash(d->table, hash, key, keySize, remove);
 
 	// if not exists
-	if(h == NULL) return NULL;
+	if(kv == NULL) return NULL;
 
 	// value
-	void *value = h->value;
-	if(remove) free(h);
+	const size_t *pos = kv->value;
+
+	// get key value pair
+	key_value_t *a = array_get_raw(d->array, *pos, remove, true);
+
+	void *value = a->value;
+
+	if(remove){
+		free(kv->key);
+		free(kv->value);
+		free(kv);
+		free(a->key);
+		free(a);
+	}
+
 	return value;
 }
 
 // !trivial
 void *dict_get_at_raw(dict_t *d, size_t pos, bool remove){
-	array_entry_t *a = array_get_raw(d->array, pos, remove);
+	key_value_t *a = array_get_raw(d->array, pos, remove, true);
 	if(a == NULL) return NULL;
-	if(remove) free(a);
-	return dict_get_bin_raw(d, &pos, sizeof(size_t), remove);
+	void *value = a->value;
+	
+	if(remove){
+		free(a->key);
+		free(a);
+	}
+
+	return value;
 }
 
-void *dict_get_bin(dict_t *d, void *key, size_t keySize){
-	return dict_get_bin_raw(d, key, keySize, false);
+void *dict_get_bin(const dict_t *d, void *key, size_t keySize){
+	return dict_get_bin_raw((dict_t*)d, key, keySize, false);
 }
 
-void *dict_get(dict_t *d, char *key){
-	return dict_get_bin_raw(d, key, strlen(key), false);
+void *dict_get(const dict_t *d, char *key){
+	return dict_get_bin_raw((dict_t*)d, key, strlen(key), false);
 }
 
-void *dict_get_at(dict_t *d, size_t pos){
-	return dict_get_at_raw(d, pos, false);
+void *dict_get_at(const dict_t *d, size_t pos){
+	return dict_get_at_raw((dict_t*)d, pos, false);
 }
 
 void *dict_remove_bin(dict_t *d, void *key, size_t keySize){
@@ -591,47 +604,44 @@ void *dict_remove_at(dict_t *d, size_t pos){
 	return dict_get_at_raw(d, pos, true);
 }
 
-bool dict_exists_bin(dict_t *d, void *key, size_t keySize){
-	return dict_get_bin_raw(d, key, keySize, false) != NULL;
+bool dict_exists_bin(const dict_t *d, void *key, size_t keySize){
+	return dict_get_bin_raw((dict_t*)d, key, keySize, false) != NULL;
 }
 
-bool dict_exists(dict_t *d, char *key){
-	return dict_get_bin_raw(d, key, strlen(key), false) != NULL;
+bool dict_exists(const dict_t *d, char *key){
+	return dict_get_bin_raw((dict_t*)d, key, strlen(key), false) != NULL;
 }
 
-bool dict_exists_at(dict_t *d, size_t pos){
-	return dict_get_at_raw(d, pos, false) != NULL;
+bool dict_exists_at(const dict_t *d, size_t pos){
+	return dict_get_at_raw((dict_t*)d, pos, false) != NULL;
 }
 
-int64_t dict_pos_of_bin(dict_t *d, void *key, size_t keySize){
-	hash_entry_t *h = hashtable_get_bin(d->table, key, keySize);
-	return (h == NULL) ? -1 : h->array_pos;
+// !trivial
+int64_t dict_pos_of_bin(const dict_t *d, void *key, size_t keySize){
+	size_t *pos = hashtable_get_bin(d->table, key, keySize);
+	return (pos == NULL) ? -1 : (int64_t)*pos;
 }
 
-int64_t dict_pos_of(dict_t *d, char *key){
+int64_t dict_pos_of(const dict_t *d, char *key){
 	return dict_pos_of_bin(d, key, strlen(key));
 }
 
-void *dict_next(dict_ite *i){
+// !trivial
+key_value_t dict_next(dict_ite *i){
 	if(i->pos >= i->d->array->size){
 		i->yield = false;
-		return NULL;
+		return (key_value_t){0};
 	}
 
-	array_entry_t *a = array_get(i->d->array, i->pos);
-	while(a == NULL){
-		i->pos++;
-		if(i->pos >= i->d->array->size) break;
-		a = array_get(i->d->array, i->pos);
-	}
+	const key_value_t *a = array_get(i->d->array, i->pos);
+	i->pos++;
 
 	if(a == NULL){
 		i->yield = false;
-		return NULL;
+		return (key_value_t){0};
 	}
-	else{
-		return hashtable_get_by_hash(i->d->table, a->hash, &i->pos, sizeof(size_t), false);
-	}
+
+	return *a;
 }
 
 dict_ite dict_iterate(dict_t *d){
