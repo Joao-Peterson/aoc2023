@@ -41,11 +41,8 @@ uint64_t part2(puzzle_t *p){
 
 int main(int argc, char**argv){
 	string *data;
-	
-	if(argc > 1)
-		data = string_from_filename(argv[1], NULL);	// from arg filename
-	else
-		data = string_from_file(stdin, NULL);      	// from pipe
+	if(argc > 1) data = string_from_filename(argv[1], NULL);	// from arg filename
+	else         data = string_from_file(stdin, NULL);      	// from pipe
 
 	puzzle_t *p = parseInput(data);
 	
