@@ -19,7 +19,7 @@ typedef struct{
 
 // parse file
 puzzle_t *parseInput(const string *data){
-	puzzle_t *p = malloc(sizeof(puzzle_t));
+	puzzle_t *p = calloc(1, sizeof(puzzle_t));
 
 	string_ite ite = string_split(data, "\n");
 	size_t l = 0;
